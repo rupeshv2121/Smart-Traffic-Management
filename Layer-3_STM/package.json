@@ -1,0 +1,31 @@
+{
+  "name": "layer-3_stm",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/main.js",
+    "dev": "ts-node src/main.ts",
+    "live": "ts-node src/live.ts",
+    "test": "ts-node src/index.ts",
+    "sim": "ts-node src/continuous-simulator.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rupeshv2121/Layer-3_STM.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/rupeshv2121/Layer-3_STM/issues"
+  },
+  "homepage": "https://github.com/rupeshv2121/Layer-3_STM#readme",
+  "devDependencies": {
+    "@types/node": "^26.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.3"
+  }
+}
