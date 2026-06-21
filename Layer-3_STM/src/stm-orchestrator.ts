@@ -14,6 +14,7 @@ import {
   PhaseState,
   ProposedPlan,
 } from "./max-pressure-optimizer";
+import { EmvTrustConfig, EmvVerifier } from "./emv/emv-verifier";
 import { ConfidenceThresholds, ResilienceHandler } from "./resilience-handler";
 import { SafetyConfig, SafetySupervisor } from "./safety-supervisor";
 import {
@@ -35,6 +36,10 @@ export interface OrchestratorConfig {
   resilienceThresholds?: ConfidenceThresholds;
   maxDataAgeSeconds?: number; // How old Layer 2 data can be before forcing fallback
   defaultPhaseIfNoProposal?: string;
+  // EMV Security & Trust gate. When present, every emergency token is verified
+  // (signature + time-bound + route-scope + revocation + GPS) before a corridor
+  // is opened. When absent, the orchestrator is fail-closed: tokens are rejected.
+  emvTrust?: EmvTrustConfig;
 }
 
 export interface OrchestratorResult {
@@ -66,12 +71,16 @@ export class STMOrchestrator {
   private currentPhaseState: PhaseState;
   private lastGreenTracker: Record<string, number>;
   private emvCorridorActive: boolean;
+  private emvVerifier: EmvVerifier | null;
 
   constructor(config: OrchestratorConfig) {
     this.config = config;
     this.safetyValidator = new SafetySupervisor(config.safetyConfig);
     this.resilienceHandler = new ResilienceHandler(config.resilienceThresholds);
     this.optimizer = new MaxPressureOptimizer();
+    this.emvVerifier = config.emvTrust
+      ? new EmvVerifier(config.emvTrust)
+      : null;
     this.lastValidTimestamp = new Date().toISOString();
     // Initialize phase state for Member 2.
     // Assume the junction was already running NORTH for a full cycle before the
@@ -102,6 +111,32 @@ export class STMOrchestrator {
   ): OrchestratorResult {
     const reasonChain: string[] = [];
     const commandId = `CMD-${Date.now()}`;
+
+    // ===== STAGE 0 (pre): EMV Token Verification (Security & Trust gate) =====
+    // The cryptographic gate the architecture places at the junction decision
+    // boundary. A token only survives if it is signed, unexpired, scoped to this
+    // junction, not revoked, and its live GPS track is consistent with the
+    // claimed route/ETA. A rejected token is downgraded to "no emergency" so the
+    // rest of the pipeline (incl. corridor teardown below) treats it as absent.
+    if (emergencyToken) {
+      const verdict = this.emvVerifier
+        ? this.emvVerifier.verify(emergencyToken)
+        : { valid: false, reasons: ["EMV_TRUST_NOT_CONFIGURED"] };
+
+      if (verdict.valid) {
+        reasonChain.push(
+          `EMV token VERIFIED: ${emergencyToken.emvId} ` +
+            `(signature + time-bound + route-scope + GPS consistent)`,
+        );
+      } else {
+        reasonChain.push(
+          `EMV token REJECTED: ${emergencyToken.emvId} — ${verdict.reasons.join(
+            "; ",
+          )}. Corridor request ignored.`,
+        );
+        emergencyToken = null;
+      }
+    }
 
     // ===== STAGE 0: EMV Corridor Reconciliation =====
     // Tear the corridor down up-front whenever there is no emergency this cycle,
@@ -577,6 +612,14 @@ export class STMOrchestrator {
     const dataTime = new Date(timestamp).getTime();
     const now = new Date().getTime();
     return (now - dataTime) / 1000;
+  }
+
+  /**
+   * Revoke an EMV token by id at this junction. Once revoked, the token fails
+   * the verifier's revocation check and can never reopen a corridor.
+   */
+  public revokeEmvToken(tokenId: string): void {
+    this.emvVerifier?.revoke(tokenId);
   }
 
   /**

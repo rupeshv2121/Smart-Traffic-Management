@@ -10,6 +10,7 @@
 // ============================================================
 
 import {
+  EMV_INGEST_PORT,
   JUNCTION_ID,
   MIN_YELLOW_SECONDS,
   PERCEPTION_URL,
@@ -17,18 +18,24 @@ import {
   PIPELINE_CYCLE_SECONDS,
   orchestratorConfig,
 } from "./config";
+import { EmvIngestServer } from "./emv/emv-ingest-server";
 import { Layer2Bridge } from "./layer2-bridge";
 import { MockDataGenerator } from "./mock-data/mock_generator";
 import { STMOrchestrator } from "./stm-orchestrator";
 import type { Layer2Payload } from "./types/types";
 
 const bridge = new Layer2Bridge(PERCEPTION_URL, JUNCTION_ID);
-// The mock generator still supplies the NON-perception inputs (the EMVS
-// emergency channel and the historical-timing database), plus a perception
-// fallback if the live CV service drops out.
+// The mock generator still supplies the historical-timing database and a
+// perception fallback if the live CV service drops out. Emergencies now arrive
+// over the REAL Layer 1 intake (EmvIngestServer), not the mock trigger.
 const generator = new MockDataGenerator();
 const orchestrator = new STMOrchestrator(orchestratorConfig);
 const historicalData = generator.getHistoricalData();
+// EMV telemetry intake (Layer 1 second sensing stream). A revoke on the
+// endpoint is forwarded into the junction verifier's blocklist.
+const emvIngest = new EmvIngestServer(EMV_INGEST_PORT, (tokenId) =>
+  orchestrator.revokeEmvToken(tokenId),
+);
 
 console.log("╔════════════════════════════════════════════════════════════╗");
 console.log("║     LAYER 3 STM — LIVE PIPELINE (real CV perception)       ║");
@@ -83,7 +90,7 @@ async function runPipeline() {
       .join(", ")}`,
   );
 
-  const emergencyToken = generator.triggerEmergency();
+  const emergencyToken = emvIngest.getActiveToken();
 
   if (emergencyToken) {
     console.log(
@@ -171,6 +178,12 @@ async function main() {
       ? `✅ Perception service is UP at ${PERCEPTION_URL}`
       : `⚠️  Perception service not reachable at ${PERCEPTION_URL} — will retry each cycle and use mock fallback meanwhile.`,
   );
+
+  await emvIngest.start();
+  console.log(
+    `🚑 EMV intake listening on http://localhost:${EMV_INGEST_PORT} ` +
+      `(POST /emergency/token). Send one with: npm run emv:dispatch -- EAST 35 CRITICAL`,
+  );
   console.log("🔄 Starting 30-second optimization cycle...\n");
 
   await runPipeline();
@@ -180,7 +193,7 @@ async function main() {
 
   process.on("SIGINT", () => {
     clearInterval(pipelineInterval);
-    generator.endEmergencyCorridor();
+    emvIngest.stop();
     console.log("\n\n✋ Live pipeline stopped. Goodbye!");
     process.exit(0);
   });

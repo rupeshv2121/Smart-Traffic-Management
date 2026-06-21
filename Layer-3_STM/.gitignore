@@ -1,1 +1,4 @@
 node_modules
+
+# EMV dev keypair (private key must never be committed)
+.emv-keys.json

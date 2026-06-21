@@ -9,7 +9,9 @@
     "dev": "ts-node src/main.ts",
     "live": "ts-node src/live.ts",
     "test": "ts-node src/index.ts",
-    "sim": "ts-node src/continuous-simulator.ts"
+    "sim": "ts-node src/continuous-simulator.ts",
+    "emv:keygen": "ts-node src/emv/keygen.ts",
+    "emv:dispatch": "ts-node src/emv/emv-dispatch-cli.ts"
   },
   "repository": {
     "type": "git",
