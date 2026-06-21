@@ -36,6 +36,10 @@ export const JUNCTION_LOCATION = {
 // pipeline listens here for POST /emergency/token.
 export const EMV_INGEST_PORT = Number(process.env.EMV_INGEST_PORT ?? 8100);
 
+// Port for the Layer 5 dashboard SSE gateway. The live pipeline broadcasts one
+// CycleSnapshot per cycle here; the Layer-5 React app subscribes at GET /events.
+export const DASHBOARD_PORT = Number(process.env.DASHBOARD_PORT ?? 8200);
+
 // EMV trust configuration consumed by the junction-side EmvVerifier (Layer 3
 // Security & Trust gate). The junction holds only the PUBLIC key.
 export const emvTrust = {

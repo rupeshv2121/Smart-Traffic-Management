@@ -10,6 +10,7 @@
 // ============================================================
 
 import {
+  DASHBOARD_PORT,
   EMV_INGEST_PORT,
   JUNCTION_ID,
   MIN_YELLOW_SECONDS,
@@ -18,6 +19,8 @@ import {
   PIPELINE_CYCLE_SECONDS,
   orchestratorConfig,
 } from "./config";
+import { DashboardGateway } from "./dashboard/dashboard-gateway";
+import { buildSnapshot } from "./dashboard/snapshot";
 import { EmvIngestServer } from "./emv/emv-ingest-server";
 import { Layer2Bridge } from "./layer2-bridge";
 import { MockDataGenerator } from "./mock-data/mock_generator";
@@ -36,6 +39,9 @@ const historicalData = generator.getHistoricalData();
 const emvIngest = new EmvIngestServer(EMV_INGEST_PORT, (tokenId) =>
   orchestrator.revokeEmvToken(tokenId),
 );
+// Layer 5 dashboard read-out: each cycle's snapshot is fanned out to browser
+// dashboards over SSE. Read-only — it never feeds back into the control path.
+const dashboard = new DashboardGateway(DASHBOARD_PORT);
 
 console.log("╔════════════════════════════════════════════════════════════╗");
 console.log("║     LAYER 3 STM — LIVE PIPELINE (real CV perception)       ║");
@@ -167,6 +173,17 @@ async function runPipeline() {
   console.log(
     `   ${statusIcon} ${orchestrationResult.safetyValidationPassed ? "SAFE TO EXECUTE" : "SAFETY VIOLATION — BLOCKED"}`,
   );
+
+  // Layer 5 — push this cycle to any connected dashboards.
+  dashboard.broadcast(
+    buildSnapshot({
+      cycle: cycleCount,
+      layer2: layer2Data,
+      source: source === "LIVE_CV" ? "LIVE_CV" : "MOCK_FALLBACK",
+      emergency: emergencyToken,
+      result: orchestrationResult,
+    }),
+  );
 }
 
 async function main() {
@@ -184,6 +201,12 @@ async function main() {
     `🚑 EMV intake listening on http://localhost:${EMV_INGEST_PORT} ` +
       `(POST /emergency/token). Send one with: npm run emv:dispatch -- EAST 35 CRITICAL`,
   );
+
+  await dashboard.start();
+  console.log(
+    `📊 Layer 5 dashboard feed on http://localhost:${DASHBOARD_PORT}/events ` +
+      `(SSE). Start the UI with: cd ../Layer-5 && npm run dev`,
+  );
   console.log("🔄 Starting 30-second optimization cycle...\n");
 
   await runPipeline();
@@ -194,6 +217,7 @@ async function main() {
   process.on("SIGINT", () => {
     clearInterval(pipelineInterval);
     emvIngest.stop();
+    dashboard.stop();
     console.log("\n\n✋ Live pipeline stopped. Goodbye!");
     process.exit(0);
   });
