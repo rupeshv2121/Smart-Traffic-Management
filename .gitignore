@@ -1,0 +1,16 @@
+# Root-level ignores for the integrated mono-repo.
+# (Each subproject keeps its own .gitignore as well.)
+
+# Python
+**/.venv/
+**/__pycache__/
+*.pyc
+
+# Node
+**/node_modules/
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
