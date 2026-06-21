@@ -1,4 +1,12 @@
-import { orchestratorConfig } from "./config";
+import {
+  JUNCTION_ID,
+  JUNCTION_LOCATION,
+  emvTrust,
+  orchestratorConfig,
+} from "./config";
+import { MockEmvDispatch } from "./emv/emv-dispatch";
+import { loadEmvKeys } from "./emv/emv-keys";
+import { EmvVerifier } from "./emv/emv-verifier";
 import {
   DownstreamDensity,
   MaxPressureOptimizer,
@@ -13,6 +21,13 @@ import { ApproachMetrics, Layer2Payload } from "./types/types";
 const generator = new MockDataGenerator();
 const orchestrator = new STMOrchestrator(orchestratorConfig);
 const safetyValidator = new SafetySupervisor(orchestratorConfig.safetyConfig);
+// Mock dispatch authority for the test scenarios — signs real Ed25519 tokens
+// the orchestrator's EmvVerifier will accept (same dev key, plausible GPS).
+const dispatch = new MockEmvDispatch(
+  loadEmvKeys().privateKeyPem,
+  JUNCTION_ID,
+  JUNCTION_LOCATION,
+);
 
 console.log("╔════════════════════════════════════════════════════════════╗");
 console.log("║         Layer-3 STM - Full Integration Test                ║");
@@ -68,13 +83,12 @@ console.log(
   "═══════════════════════════════════════════════════════════════\n",
 );
 
-const emergencyToken = {
+const emergencyToken = dispatch.issue({
   emvId: "AMB-0042",
-  priorityClass: "CRITICAL" as const,
+  priorityClass: "CRITICAL",
   etaSeconds: 35,
-  cryptographicToken: "0xVALID_MOCK_TOKEN",
-  targetPhaseId: "EAST" as const,
-};
+  targetPhaseId: "EAST",
+});
 
 console.log("🚨 Emergency Token Detected:");
 console.log(`   EMV ID: ${emergencyToken.emvId}`);
@@ -411,13 +425,12 @@ console.log(
 );
 const emvOrchestrator = new STMOrchestrator(orchestratorConfig);
 const emvData = generator.getLayer2Data(0.9);
-const emvConflictToken = {
+const emvConflictToken = dispatch.issue({
   emvId: "AMB-9001",
-  priorityClass: "CRITICAL" as const,
+  priorityClass: "CRITICAL",
   etaSeconds: 30,
-  cryptographicToken: "0xVALID_MOCK_TOKEN",
-  targetPhaseId: "SOUTH" as const, // SOUTH conflicts with the default current NORTH
-};
+  targetPhaseId: "SOUTH", // SOUTH conflicts with the default current NORTH
+});
 const emvResult = emvOrchestrator.orchestrateActuation(
   emvData,
   emvConflictToken,
@@ -554,13 +567,12 @@ const corridorOrchestrator = new STMOrchestrator(orchestratorConfig);
 // Cycle 1: an emergency opens the corridor.
 corridorOrchestrator.orchestrateActuation(
   generator.getLayer2Data(0.9),
-  {
+  dispatch.issue({
     emvId: "AMB-7777",
-    priorityClass: "CRITICAL" as const,
+    priorityClass: "CRITICAL",
     etaSeconds: 30,
-    cryptographicToken: "0xVALID_MOCK_TOKEN",
-    targetPhaseId: "EAST" as const,
-  },
+    targetPhaseId: "EAST",
+  }),
   historicalData,
 );
 const corridorOpened =
@@ -585,6 +597,121 @@ assert(
   "No-emergency fallback cycle tears the corridor down (not stuck active)",
   corridorClosed === false,
   `active=${corridorClosed}`,
+);
+
+// ─── Fix #6: EMV trust gate — signature / time / route / GPS / revocation ────
+console.log(
+  "\n🔐 Fix #6 — EMV Security & Trust gate rejects forged / invalid tokens:",
+);
+
+const verifier = new EmvVerifier(emvTrust);
+
+// Baseline: a properly signed token with consistent GPS verifies cleanly.
+const goodToken = dispatch.issue({
+  emvId: "AMB-GOOD",
+  priorityClass: "CRITICAL",
+  etaSeconds: 35,
+  targetPhaseId: "EAST",
+});
+assert(
+  "Valid signed token with consistent GPS → VERIFIED",
+  verifier.verify(goodToken).valid === true,
+  verifier.verify(goodToken).reasons.join(",") || "ok",
+);
+
+// Forgery: mutate a signed claim (targetPhaseId) after signing → signature breaks.
+const forged = { ...goodToken, targetPhaseId: "WEST" };
+const forgedVerdict = verifier.verify(forged);
+assert(
+  "Tampered claim → SIGNATURE_INVALID (forgery rejected)",
+  !forgedVerdict.valid && forgedVerdict.reasons.includes("SIGNATURE_INVALID"),
+  forgedVerdict.reasons.join(","),
+);
+
+// Out of route scope: legitimately signed, but for a different junction.
+const offRoute = dispatch.issue({
+  emvId: "AMB-OFFROUTE",
+  priorityClass: "HIGH",
+  etaSeconds: 30,
+  targetPhaseId: "NORTH",
+  routeJunctions: ["DEL_SOME_OTHER_JN"],
+});
+const offRouteVerdict = verifier.verify(offRoute);
+assert(
+  "Token scoped to another junction → ROUTE_SCOPE_MISMATCH (signature still valid)",
+  !offRouteVerdict.valid &&
+    offRouteVerdict.checks.signature === true &&
+    offRouteVerdict.checks.routeScope === false,
+  offRouteVerdict.reasons.join(","),
+);
+
+// Expired: signed but already past its time-bound window.
+const expired = dispatch.issue({
+  emvId: "AMB-EXPIRED",
+  priorityClass: "NORMAL",
+  etaSeconds: 20,
+  targetPhaseId: "SOUTH",
+  ttlMs: -30_000, // expired well beyond the clock-skew tolerance
+});
+const expiredVerdict = verifier.verify(expired);
+assert(
+  "Past-expiry token → time-bound check fails (replay window closed)",
+  !expiredVerdict.valid && expiredVerdict.checks.timeBound === false,
+  expiredVerdict.reasons.join(","),
+);
+
+// Stolen/replayed from elsewhere: valid signature, but GPS far from junction.
+const wrongGps = {
+  ...goodToken,
+  gpsTrack: { ...goodToken.gpsTrack, lat: 0, lng: 0 },
+};
+const wrongGpsVerdict = verifier.verify(wrongGps);
+assert(
+  "Valid token but GPS outside approach zone → GPS check fails (stolen-token defence)",
+  !wrongGpsVerdict.valid &&
+    wrongGpsVerdict.checks.signature === true &&
+    wrongGpsVerdict.checks.gps === false,
+  wrongGpsVerdict.reasons.join(","),
+);
+
+// Revocation: a token that verified is blocklisted and then refused.
+const revToken = dispatch.issue({
+  emvId: "AMB-REVOKE",
+  priorityClass: "CRITICAL",
+  etaSeconds: 40,
+  targetPhaseId: "EAST",
+});
+const beforeRevoke = verifier.verify(revToken).valid;
+verifier.revoke(revToken.tokenId);
+const afterRevoke = verifier.verify(revToken).valid;
+assert(
+  "Revoked token: verified before, refused after revoke()",
+  beforeRevoke === true && afterRevoke === false,
+  `before=${beforeRevoke}, after=${afterRevoke}`,
+);
+
+// End-to-end: a forged token must NOT open a corridor through the orchestrator.
+const trustOrchestrator = new STMOrchestrator(orchestratorConfig);
+const forgedE2E = {
+  ...dispatch.issue({
+    emvId: "AMB-FORGED-E2E",
+    priorityClass: "CRITICAL",
+    etaSeconds: 30,
+    targetPhaseId: "EAST",
+  }),
+  targetPhaseId: "WEST", // tamper after signing
+};
+const forgedResult = trustOrchestrator.orchestrateActuation(
+  generator.getLayer2Data(0.9),
+  forgedE2E,
+  historicalData,
+);
+assert(
+  "Forged token through orchestrator → NO green corridor (rejected, runs normal)",
+  forgedResult.executionPath !== "EMERGENCY_MODE" &&
+    forgedResult.finalCommand.executionMode !== "GREEN_CORRIDOR" &&
+    forgedResult.reasonChain.some((r) => r.includes("EMV token REJECTED")),
+  forgedResult.executionPath,
 );
 
 // ===== ORCHESTRATOR STATE SUMMARY =====

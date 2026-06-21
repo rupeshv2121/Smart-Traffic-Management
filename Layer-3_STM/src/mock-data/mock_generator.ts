@@ -1,4 +1,7 @@
 // mock-generator.ts — Mock Layer 2 cameras, historical DB, and EMVS dispatch
+import { JUNCTION_ID, JUNCTION_LOCATION } from "../config";
+import { MockEmvDispatch } from "../emv/emv-dispatch";
+import { loadEmvKeys } from "../emv/emv-keys";
 import type {
   ApproachData,
   EmergencyToken,
@@ -13,6 +16,13 @@ const PRIORITY_CLASSES: PriorityClass[] = ["CRITICAL", "HIGH", "NORMAL"];
 export class MockDataGenerator {
   private activeEmergency: EmergencyToken | null = null;
   private corridorEndTime: number | null = null;
+  // Mock dispatch authority — signs real Ed25519 tokens with the dev private key
+  // and attaches a plausible GPS track so the junction verifier validates them.
+  private dispatch = new MockEmvDispatch(
+    loadEmvKeys().privateKeyPem,
+    JUNCTION_ID,
+    JUNCTION_LOCATION,
+  );
 
   private generateRandomDetections() {
     return Object.keys(VEHICLE_WEIGHTS).map((type) => ({
@@ -55,13 +65,12 @@ export class MockDataGenerator {
       PRIORITY_CLASSES[Math.floor(Math.random() * PRIORITY_CLASSES.length)] ??
       "CRITICAL";
 
-    this.activeEmergency = {
+    this.activeEmergency = this.dispatch.issue({
       emvId: `AMB-${Math.floor(Math.random() * 9999)}`,
       priorityClass,
       etaSeconds,
-      cryptographicToken: "0xVALID_MOCK_TOKEN",
       targetPhaseId,
-    };
+    });
     this.corridorEndTime = now + etaSeconds * 1000;
 
     return this.activeEmergency;

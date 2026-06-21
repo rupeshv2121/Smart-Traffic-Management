@@ -164,12 +164,33 @@ export const PRIORITY_CLASS_MULTIPLIER: Record<PriorityClass, number> = {
   NORMAL: 1,
 };
 
+// Live EMV device telemetry (Layer 1, second sensing stream). NOT covered by
+// the token signature — it is continuous and checked for consistency against
+// the signed claims by the EmvVerifier at the Layer 3 gate.
+export interface EmvGpsTrack {
+  lat: number;
+  lng: number;
+  headingDeg: number; // 0 = north, 90 = east
+  speedMps: number;
+  timestamp: number; // epoch ms when the fix was taken
+}
+
+// A signed, time-bound, route-scoped, revocable corridor token (Architecture
+// v2.0 §5). The first block is the SIGNED claim set; `signature` is the Ed25519
+// signature over those claims; `gpsTrack` is the live, unsigned telemetry.
 export interface EmergencyToken {
+  // ─── signed claims ──────────────────────────────────────
   emvId: string;
   priorityClass: PriorityClass;
   etaSeconds: number;
-  cryptographicToken: string;
   targetPhaseId: string; // Which phase they need to turn green
+  routeJunctions: string[]; // route scope: junctions this token is valid for
+  issuedAt: number; // epoch ms — issued at dispatch
+  expiresAt: number; // epoch ms — time-bound expiry
+  tokenId: string; // unique id, used for revocation
+  // ─── trust envelope ─────────────────────────────────────
+  signature: string; // base64 Ed25519 signature over the canonical claims
+  gpsTrack: EmvGpsTrack; // live telemetry (unsigned)
 }
 
 // ============================================================
