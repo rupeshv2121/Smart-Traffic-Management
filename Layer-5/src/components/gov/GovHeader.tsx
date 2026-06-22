@@ -6,10 +6,10 @@ import { GovBadge } from "./Emblem";
 // `actions` renders on the right (e.g. the live-connection chip).
 export function GovHeader({ actions }: { actions?: ReactNode }) {
   return (
-    <header>
+    <header className="centered-content">
       <div className="tricolour" />
       <div className="gov-header">
-        <div className="gov-header-inner">
+        <div className="gov-header-inner ">
           <GovBadge size={56} />
           <div className="gov-titles">
             <span className="en">Government of NCT of Delhi</span>
