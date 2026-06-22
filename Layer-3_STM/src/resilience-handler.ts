@@ -12,6 +12,85 @@ export interface ConfidenceThresholds {
     warningThreshold: number;   // Default: 0.80 (80%)
 }
 
+// ─── Resilience ladder (Ideation §5 / Architecture §6) ───────────────────────
+// Four degradation rungs the system steps through rather than failing outright:
+//   STATE 0  FULL_ADAPTIVE      live CV → max-pressure → coordinated over the bus
+//   STATE 1  DEGRADED_SENSING   CV confidence low → historical timing fallback
+//   STATE 2  LOCALLY_AUTONOMOUS broker/heartbeat lost → edge runs on its own
+//   STATE 3  TOTAL_FAILSAFE     edge compute/hardware fault → fixed-time default
+export type LadderState =
+    | "FULL_ADAPTIVE"
+    | "DEGRADED_SENSING"
+    | "LOCALLY_AUTONOMOUS"
+    | "TOTAL_FAILSAFE";
+
+export interface LinkSnapshot {
+    brokerConnected: boolean;
+    heartbeatAgeMs: number;
+    heartbeatStale: boolean;
+    edgeComputeOk: boolean;
+}
+
+/**
+ * Tracks the two non-perception failure axes the resilience ladder reacts to:
+ * loss of cross-junction COORDINATION (broker down / heartbeat silence) and loss
+ * of local EDGE compute. Perception loss (CV confidence) is handled separately by
+ * the confidence gate. Defaults are healthy, so the ladder sits at STATE 0 until
+ * something is actually wrong (or a chaos toggle forces a rung).
+ */
+export class LinkMonitor {
+    private lastHeartbeatAt: number;
+    private brokerConnected = true;
+    private edgeComputeOk = true;
+
+    constructor(
+        private readonly heartbeatTimeoutMs = 30_000,
+        private readonly now: () => number = () => Date.now(),
+    ) {
+        this.lastHeartbeatAt = now();
+    }
+
+    /** Edge proves liveness each cycle; 30s of silence trips local-autonomous. */
+    public heartbeat(): void {
+        this.lastHeartbeatAt = this.now();
+    }
+
+    public setBrokerConnected(connected: boolean): void {
+        this.brokerConnected = connected;
+    }
+
+    /** Flag/clear an edge compute or hardware-validation fault (→ TOTAL_FAILSAFE). */
+    public setEdgeFault(faulted: boolean): void {
+        this.edgeComputeOk = !faulted;
+    }
+
+    public snapshot(): LinkSnapshot {
+        const heartbeatAgeMs = this.now() - this.lastHeartbeatAt;
+        return {
+            brokerConnected: this.brokerConnected,
+            heartbeatAgeMs,
+            heartbeatStale: heartbeatAgeMs > this.heartbeatTimeoutMs,
+            edgeComputeOk: this.edgeComputeOk,
+        };
+    }
+}
+
+/**
+ * Combine the perception (CV confidence) and link (broker/heartbeat/edge) axes
+ * into a single ladder rung. Most-severe wins: a total fault outranks a lost
+ * broker, which outranks degraded sensing.
+ */
+export function computeLadderState(
+    cvConfidence: number,
+    criticalConfidence: number,
+    link: LinkSnapshot,
+): LadderState {
+    if (!link.edgeComputeOk) return "TOTAL_FAILSAFE";
+    if (!link.brokerConnected || link.heartbeatStale) return "LOCALLY_AUTONOMOUS";
+    if (cvConfidence < criticalConfidence) return "DEGRADED_SENSING";
+    return "FULL_ADAPTIVE";
+}
+
 export interface ResilienceState {
     currentConfidenceScore: number;
     isFallbackActive: boolean;

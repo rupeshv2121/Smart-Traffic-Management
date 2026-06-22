@@ -52,6 +52,25 @@ export interface AnalyticsAggregate {
   planDistribution?: Record<string, number>;
 }
 
+export interface AnalyticsSeriesPoint {
+  ts: string;
+  throughputPcu: number;
+  avgWaitSeconds: number;
+  congestion: number;
+  avgConfidencePct: number;
+  safetyPassPct: number;
+  samples: number;
+}
+export interface AnalyticsSeries {
+  windowHours: number;
+  buckets: number;
+  bucketMinutes: number;
+  samples: number;
+  coveredFrom: string | null;
+  coveredTo: string | null;
+  points: AnalyticsSeriesPoint[];
+}
+
 export type ViolationType = "RED_LIGHT" | "NO_HELMET" | "WRONG_LANE" | "SPEEDING" | "STOP_LINE";
 export type ChallanStatus = "PENDING" | "ISSUED" | "REJECTED";
 export interface Challan {
@@ -153,6 +172,9 @@ export function getAudit(limit = 100): Promise<{ entries: AuditEntry[] }> {
 }
 export function getAnalytics(): Promise<AnalyticsAggregate> {
   return getJson("/analytics");
+}
+export function getAnalyticsSeries(hours = 24, buckets = 48): Promise<AnalyticsSeries> {
+  return getJson(`/analytics/series?hours=${hours}&buckets=${buckets}`);
 }
 
 // ── registry (edge nodes / users / zones) ────────────────────

@@ -63,6 +63,12 @@ export class EmvIngestServer {
     return this.active;
   }
 
+  /** Clear the active grant (e.g. the corridor manager resolved no winner —
+   *  vehicle ARRIVED or run ended). The junction stops preempting. */
+  public clearActive(): void {
+    this.active = null;
+  }
+
   /** Inject a token from in-process (used by the dashboard dispatch endpoint). */
   public submit(token: EmergencyToken): void {
     this.active = token;

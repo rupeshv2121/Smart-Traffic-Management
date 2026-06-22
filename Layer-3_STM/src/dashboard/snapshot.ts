@@ -19,6 +19,8 @@ import {
 import { LIVE_JUNCTION } from "./junctions";
 import { calculatePersonFlow } from "../types/types";
 import type { OrchestratorResult } from "../stm-orchestrator";
+import type { LadderState } from "../resilience-handler";
+import type { CorridorSnapshot } from "../emv/corridor-manager";
 import type { ActuationCommand, Layer2Payload, EmergencyToken } from "../types/types";
 
 /** Where this cycle's perception came from. */
@@ -106,6 +108,17 @@ export interface CycleSnapshot {
 
   emergency: EmergencySnapshot | null;
 
+  /** Multi-junction Green-Corridor state (routing, reservations, sequencing). */
+  corridor: CorridorSnapshot;
+
+  /** 4-state resilience ladder + the link health behind it. */
+  resilience: {
+    ladderState: LadderState;
+    brokerConnected: boolean;
+    heartbeatAgeMs: number;
+    edgeComputeOk: boolean;
+  };
+
   controller: ControllerSnapshot;
 
   decision: {
@@ -150,8 +163,9 @@ export function buildSnapshot(args: {
   source: PerceptionSource;
   emergency: EmergencyToken | null;
   result: OrchestratorResult;
+  corridor: CorridorSnapshot;
 }): CycleSnapshot {
-  const { cycle, layer2, source, emergency, result } = args;
+  const { cycle, layer2, source, emergency, result, corridor } = args;
   const greenPhase = result.finalCommand.targetPhaseId;
 
   const approaches: ApproachSnapshot[] = layer2.approaches.map((a) => ({
@@ -184,14 +198,23 @@ export function buildSnapshot(args: {
     (acc, p) => ((acc[p] = p === greenPhase ? "GREEN" : "RED"), acc),
     {} as Record<"NORTH" | "SOUTH" | "EAST" | "WEST", "RED" | "GREEN" | "YELLOW">,
   );
+  // Edge status follows the resilience ladder: a total fault is OFFLINE, a lost
+  // broker / degraded sensing / mock perception is DEGRADED, otherwise ONLINE.
+  const edgeStatus: "ONLINE" | "DEGRADED" | "OFFLINE" =
+    result.ladderState === "TOTAL_FAILSAFE"
+      ? "OFFLINE"
+      : result.ladderState !== "FULL_ADAPTIVE" || source !== "LIVE_CV"
+        ? "DEGRADED"
+        : "ONLINE";
   const controller: CycleSnapshot["controller"] = {
     controllerType: "SIMULATED",
     signalState,
     commandAck: { applied: result.safetyValidationPassed, rttMs: 28 + (cycle % 6) * 5 },
     junctionHealth: {
-      edgeStatus: source === "LIVE_CV" ? "ONLINE" : "DEGRADED",
-      brokerConnected: true,
-      lastHeartbeat: new Date().toISOString(),
+      edgeStatus,
+      // Real link health from the resilience LinkMonitor (no longer hardcoded).
+      brokerConnected: result.link.brokerConnected,
+      lastHeartbeat: new Date(Date.now() - result.link.heartbeatAgeMs).toISOString(),
     },
   };
 
@@ -218,6 +241,13 @@ export function buildSnapshot(args: {
           etaSeconds: emergency.etaSeconds,
         }
       : null,
+    corridor,
+    resilience: {
+      ladderState: result.ladderState,
+      brokerConnected: result.link.brokerConnected,
+      heartbeatAgeMs: result.link.heartbeatAgeMs,
+      edgeComputeOk: result.link.edgeComputeOk,
+    },
     controller,
     decision: {
       executionPath: result.executionPath,

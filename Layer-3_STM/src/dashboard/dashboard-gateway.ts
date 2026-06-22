@@ -16,6 +16,7 @@
 //   POST /control/dispatch        → dispatch EMV green corridor [ADMIN, DISPATCHER]
 //   GET  /audit?limit=n          → recent audit (most recent first)
 //   GET  /analytics              → aggregate KPIs
+//   GET  /analytics/series        → 24h bucketed time-series (throughput/wait)
 //   GET  /challans               → violation queue
 //   POST /challans/:id/issue      → issue fine                 [ADMIN, INSPECTOR]
 //   POST /challans/:id/reject     → reject                     [ADMIN, INSPECTOR]
@@ -45,12 +46,15 @@ const CORS_HEADERS = {
 } as const;
 
 const ANALYTICS_CAP = 240; // ≈ 2h at a 30s cycle
+const HISTORY_CAP_FOR_SERIES = 2000; // full persisted history for the 24h series
 
 export interface DispatchParams {
   targetPhaseId: string;
   etaSeconds: number;
   priorityClass: "CRITICAL" | "HIGH" | "NORMAL";
   emvId?: string;
+  /** Destination junction id for the green corridor (defaults to a hospital). */
+  destinationJunctionId?: string;
 }
 export type DispatchResult =
   | { ok: true; token: EmergencyToken }
@@ -139,6 +143,12 @@ export class DashboardGateway {
     if (method === "GET" && url.startsWith("/audit")) {
       const limit = Number(new URL(url, "http://x").searchParams.get("limit") ?? 100);
       return this.json(res, 200, { entries: this.control.recentAudit(limit) });
+    }
+    if (method === "GET" && url.startsWith("/analytics/series")) {
+      const q = new URL(url, "http://x").searchParams;
+      const hours = Math.min(24, Math.max(1, Number(q.get("hours") ?? 24)));
+      const buckets = Math.min(96, Math.max(6, Number(q.get("buckets") ?? 48)));
+      return this.json(res, 200, this.computeSeries(hours, buckets));
     }
     if (method === "GET" && url.startsWith("/analytics")) {
       return this.json(res, 200, this.computeAnalytics());
@@ -232,6 +242,7 @@ export class DashboardGateway {
           etaSeconds: Number(body.etaSeconds ?? 30),
           priorityClass: (String(body.priorityClass ?? "CRITICAL").toUpperCase() as DispatchParams["priorityClass"]),
           emvId: body.emvId,
+          destinationJunctionId: body.destinationJunctionId,
         });
         if (result.ok) {
           this.control.audit(`${claims.name} (${claims.sub})`, "EMERGENCY", "ok", `dispatched ${result.token.emvId} → ${result.token.targetPhaseId}`);
@@ -365,6 +376,79 @@ export class DashboardGateway {
       avgCongestionPct: Math.round((sum((s) => s.congestionScore) / n) * 100),
       modeDistribution: dist((s) => s.decision.executionMode),
       planDistribution: dist((s) => s.decision.planType),
+    };
+  }
+
+  /**
+   * Bucket the persisted snapshot history into a time-series for the Analytics
+   * 24h charts + sparklines. Buckets span [windowStart, now] evenly; empty
+   * buckets are omitted so a fresh start renders only the available window.
+   */
+  private computeSeries(hours: number, buckets: number) {
+    const all = this.persistence?.recentSnapshots(HISTORY_CAP_FOR_SERIES) ?? this.analyticsHistory;
+    const now = Date.now();
+    const windowMs = hours * 3_600_000;
+    const windowStart = now - windowMs;
+    const inWindow = all.filter((s) => {
+      const t = Date.parse(s.timestamp);
+      return Number.isFinite(t) && t >= windowStart;
+    });
+    // Available window actually covered by data (so the UI can label it).
+    const firstTs = inWindow.length ? Date.parse(inWindow[0]!.timestamp) : now;
+    const lastTs = inWindow.length ? Date.parse(inWindow[inWindow.length - 1]!.timestamp) : now;
+    const bucketMs = windowMs / buckets;
+
+    type Acc = {
+      ts: number;
+      count: number;
+      throughput: number;
+      wait: number;
+      congestion: number;
+      confidence: number;
+      safePass: number;
+    };
+    const bins = new Map<number, Acc>();
+    for (const s of inWindow) {
+      const t = Date.parse(s.timestamp);
+      const idx = Math.min(buckets - 1, Math.floor((t - windowStart) / bucketMs));
+      const ts = windowStart + idx * bucketMs + bucketMs / 2;
+      let b = bins.get(idx);
+      if (!b) {
+        b = { ts, count: 0, throughput: 0, wait: 0, congestion: 0, confidence: 0, safePass: 0 };
+        bins.set(idx, b);
+      }
+      const approaches = s.perception.approaches;
+      const avgWait = approaches.length
+        ? approaches.reduce((a, x) => a + x.waitingTimeSeconds, 0) / approaches.length
+        : 0;
+      b.count += 1;
+      b.throughput += s.decision.optimizationMetrics.servedPcu;
+      b.wait += avgWait;
+      b.congestion += s.congestionScore;
+      b.confidence += s.perception.cvConfidenceScore;
+      b.safePass += s.decision.safetyValidationPassed ? 1 : 0;
+    }
+
+    const points = [...bins.values()]
+      .sort((a, b) => a.ts - b.ts)
+      .map((b) => ({
+        ts: new Date(b.ts).toISOString(),
+        throughputPcu: Math.round(b.throughput / b.count),
+        avgWaitSeconds: Math.round(b.wait / b.count),
+        congestion: Number((b.congestion / b.count).toFixed(3)),
+        avgConfidencePct: Math.round((b.confidence / b.count) * 100),
+        safetyPassPct: Math.round((b.safePass / b.count) * 100),
+        samples: b.count,
+      }));
+
+    return {
+      windowHours: hours,
+      buckets,
+      bucketMinutes: Math.round(bucketMs / 60000),
+      samples: inWindow.length,
+      coveredFrom: inWindow.length ? new Date(firstTs).toISOString() : null,
+      coveredTo: inWindow.length ? new Date(lastTs).toISOString() : null,
+      points,
     };
   }
 

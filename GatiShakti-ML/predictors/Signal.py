@@ -42,6 +42,7 @@ def get_model() -> YOLO:
 # ---------------------------------------------------------------------------
 MIN_GREEN = 10
 MAX_GREEN = 60
+MAX_GREEN_SEVERE = 90  # Severe congestion gets a longer green ceiling to clear backlog
 SECONDS_PER_VEHICLE = 1.0
 YELLOW_TIME = 5.0
 
@@ -60,8 +61,11 @@ def compute_density(vehicle_count: int, road_width: float) -> str:
     elif veh_per_lane < 15:
         return "Medium"
 
-    else:
+    elif veh_per_lane < 25:
         return "High"
+
+    else:
+        return "Severe"
 
 
 def compute_signal_times(
@@ -69,13 +73,16 @@ def compute_signal_times(
     road_width: float,
     previous_vehicle_count: int,
     previous_red_light_time: float,
+    density: Optional[str] = None,
 ):
     """Returns (green, yellow, red, confidence)."""
     base_green = vehicle_count * SECONDS_PER_VEHICLE
     # widen the road -> more lanes -> can clear more cars per second
     width_factor = max(road_width / 7.0, 0.5)  # 7m ~ standard 2-lane road
     green_time = base_green / width_factor
-    green_time = max(MIN_GREEN, min(MAX_GREEN, green_time))
+    # Severe congestion is allowed a longer green ceiling than the normal tiers
+    green_cap = MAX_GREEN_SEVERE if density == "Severe" else MAX_GREEN
+    green_time = max(MIN_GREEN, min(green_cap, green_time))
 
     yellow_time = YELLOW_TIME
 
@@ -140,10 +147,10 @@ def predict_signal(
                 2,
             )
 
-    green_time, yellow_time, red_time, confidence = compute_signal_times(
-        vehicle_count, road_width, previous_vehicle_count, previous_red_light_time
-    )
     density = compute_density(vehicle_count, road_width)
+    green_time, yellow_time, red_time, confidence = compute_signal_times(
+        vehicle_count, road_width, previous_vehicle_count, previous_red_light_time, density
+    )
 
     # Encode annotated image to base64 JPEG
     success, buffer = cv2.imencode(".jpg", image)
