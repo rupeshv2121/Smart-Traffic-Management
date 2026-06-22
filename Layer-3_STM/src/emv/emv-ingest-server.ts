@@ -63,6 +63,14 @@ export class EmvIngestServer {
     return this.active;
   }
 
+  /** Inject a token from in-process (used by the dashboard dispatch endpoint). */
+  public submit(token: EmergencyToken): void {
+    this.active = token;
+    console.log(
+      `[EMV-INGEST] Token submitted in-process: ${token.emvId} → ${token.targetPhaseId} (tokenId ${token.tokenId})`,
+    );
+  }
+
   public start(): Promise<void> {
     this.server = createServer((req, res) => {
       void this.handle(req, res);

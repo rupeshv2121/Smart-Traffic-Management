@@ -1,15 +1,22 @@
-import { Link, NavLink } from "react-router-dom";
+import { Link, NavLink, useNavigate } from "react-router-dom";
 
 import { AshokaChakra } from "../components/gov/Emblem";
-
-const NAV = [
-  { to: "/dashboard/live", icon: "🚦", label: "Live Operations" },
-  { to: "/dashboard/emergency", icon: "🚑", label: "Emergency Corridor" },
-  { to: "/dashboard/analytics", icon: "📊", label: "Analytics" },
-  { to: "/dashboard/health", icon: "🩺", label: "System Health" },
-];
+import { useAuth } from "../context/AuthContext";
+import { useLang } from "../context/LangContext";
+import { ROLE_META, modulesForRole } from "../types/auth";
 
 export function Sidebar() {
+  const { user, logout } = useAuth();
+  const { lang } = useLang();
+  const navigate = useNavigate();
+
+  const nav = user ? modulesForRole(user.role) : [];
+
+  function handleLogout() {
+    logout();
+    navigate("/login", { replace: true });
+  }
+
   return (
     <nav className="sidebar">
       <Link to="/" className="sidebar-brand" style={{ textDecoration: "none" }}>
@@ -20,16 +27,36 @@ export function Sidebar() {
         </div>
       </Link>
 
-      {NAV.map((n) => (
+      {nav.map((n) => (
         <NavLink
-          key={n.to}
-          to={n.to}
+          key={n.key}
+          to={n.path}
           className={({ isActive }) => `navlink ${isActive ? "active" : ""}`}
         >
           <span className="nicon">{n.icon}</span>
-          {n.label}
+          {lang === "hi" ? n.labelHi : n.label}
         </NavLink>
       ))}
+
+      {user && (
+        <div className="sidebar-user">
+          <div className="su-row">
+            <span className="su-ic" aria-hidden>
+              {ROLE_META[user.role].icon}
+            </span>
+            <div className="su-text">
+              <div className="su-name">{user.name}</div>
+              <div className="su-role">
+                {lang === "hi" ? ROLE_META[user.role].labelHi : ROLE_META[user.role].label} ·{" "}
+                {user.id}
+              </div>
+            </div>
+          </div>
+          <button type="button" className="su-logout" onClick={handleLogout}>
+            {lang === "hi" ? "साइन आउट" : "Sign out"}
+          </button>
+        </div>
+      )}
 
       <div className="sidebar-foot">
         Transport Department

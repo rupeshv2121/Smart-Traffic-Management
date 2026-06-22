@@ -2,7 +2,10 @@ import { CycleHistory } from "../components/CycleHistory";
 import { EmptyState } from "../components/EmptyState";
 import { StatCard } from "../components/StatCard";
 import { useStream } from "../context/StreamContext";
-import type { CycleSnapshot } from "../types/snapshot";
+import { CONGESTION_COLOR, congestionLevelFromScore } from "../lib/congestion";
+import type { ApproachId, CycleSnapshot } from "../types/snapshot";
+
+const APPROACH_ORDER: ApproachId[] = ["NORTH", "SOUTH", "EAST", "WEST"];
 
 const MODE_COLORS: Record<string, string> = {
   NORMAL_MAX_PRESSURE: "var(--info)",
@@ -20,9 +23,12 @@ function distribution(history: CycleSnapshot[], pick: (h: CycleSnapshot) => stri
 }
 
 export function AnalyticsPage() {
-  const { latest, history, connection } = useStream();
+  const { latest, history, city, connection } = useStream();
 
   if (!latest || history.length === 0) return <EmptyState connection={connection} />;
+
+  const heatCells = history.slice(-24);
+  const maxVeh = city ? Math.max(...city.junctions.map((j) => j.vehicleCount), 1) : 1;
 
   const n = history.length;
   const avgGreen = Math.round(
@@ -92,6 +98,62 @@ export function AnalyticsPage() {
               </div>
             ))}
           </div>
+        </section>
+      </div>
+
+      <div className="cols cols-2 mb-20">
+        <section className="card">
+          <h2 className="card-title">Approach Congestion · recent cycles</h2>
+          <div className="heatmap">
+            {APPROACH_ORDER.map((ap) => (
+              <div className="heat-row" key={ap}>
+                <span className="heat-label">{ap}</span>
+                <div className="heat-cells">
+                  {heatCells.map((h) => {
+                    const a = h.perception.approaches.find((x) => x.approachId === ap);
+                    const pct = a?.spatialOccupancyPct ?? 0;
+                    return (
+                      <span
+                        key={h.cycle}
+                        className="heat-cell"
+                        style={{ background: CONGESTION_COLOR[congestionLevelFromScore(pct / 100)] }}
+                        title={`Cycle #${h.cycle} · ${ap} · ${pct}%`}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="muted" style={{ fontSize: 12.5, marginTop: 10 }}>
+            Each cell = one cycle ({heatCells.length} shown), coloured by the congestion ramp.
+          </p>
+        </section>
+
+        <section className="card">
+          <h2 className="card-title">Junction Comparison</h2>
+          {city ? (
+            <div>
+              {[...city.junctions]
+                .sort((a, b) => b.congestionScore - a.congestionScore)
+                .map((j) => (
+                  <div className="cmp-row" key={j.id}>
+                    <span className="cmp-label">{j.code}</span>
+                    <span className="cmp-bar">
+                      <span
+                        style={{
+                          width: `${(j.vehicleCount / maxVeh) * 100}%`,
+                          background: CONGESTION_COLOR[j.congestionLevel],
+                        }}
+                      />
+                    </span>
+                    <span className="cmp-val">{j.vehicleCount}</span>
+                  </div>
+                ))}
+            </div>
+          ) : (
+            <p className="feed-empty">Awaiting city snapshot…</p>
+          )}
         </section>
       </div>
 

@@ -1,21 +1,18 @@
 import { Outlet, useLocation } from "react-router-dom";
 
 import { ConnectionChip } from "../components/ConnectionChip";
+import { useLang } from "../context/LangContext";
 import { useStream } from "../context/StreamContext";
+import { moduleBySeg } from "../types/auth";
 import { Sidebar } from "./Sidebar";
-
-const TITLES: Record<string, { title: string; hi: string }> = {
-  live: { title: "Live Operations", hi: "लाइव संचालन" },
-  emergency: { title: "Emergency Corridor", hi: "आपातकालीन गलियारा" },
-  analytics: { title: "Analytics", hi: "विश्लेषण" },
-  health: { title: "System Health", hi: "सिस्टम स्थिति" },
-};
 
 export function DashboardLayout() {
   const { latest, connection } = useStream();
+  const { lang } = useLang();
   const location = useLocation();
-  const key = location.pathname.split("/").pop() ?? "live";
-  const meta = TITLES[key] ?? TITLES.live;
+  const seg = location.pathname.split("/").pop() ?? "live";
+  const mod = moduleBySeg(seg) ?? moduleBySeg("live")!;
+  const title = lang === "hi" ? mod.labelHi : mod.label;
 
   return (
     <div className="shell">
@@ -23,7 +20,7 @@ export function DashboardLayout() {
       <div className="content">
         <div className="content-bar">
           <div>
-            <h1>{meta.title}</h1>
+            <h1>{title}</h1>
             <div className="sub">
               {latest
                 ? `${latest.junctionId} · Cycle #${latest.cycle} · ${new Date(

@@ -6,3 +6,6 @@ opencv-python-headless==4.10.0.84
 numpy==1.26.4
 pillow==10.4.0
 pydantic==2.9.2
+structlog==24.4.0
+# Optional ANPR OCR backend — install to make Challan plate reads real:
+#   easyocr==1.7.2   (or)   pytesseract==0.3.13 + system Tesseract

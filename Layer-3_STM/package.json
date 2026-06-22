@@ -27,7 +27,20 @@
   "homepage": "https://github.com/rupeshv2121/Layer-3_STM#readme",
   "devDependencies": {
     "@types/node": "^26.0.0",
+    "@types/pg": "^8.20.0",
+    "@types/ws": "^8.18.1",
     "ts-node": "^10.9.2",
     "typescript": "^6.0.3"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.219.0",
+    "@opentelemetry/resources": "^2.8.0",
+    "@opentelemetry/sdk-trace-node": "^2.8.0",
+    "@opentelemetry/semantic-conventions": "^1.41.1",
+    "dotenv": "^17.4.2",
+    "pg": "^8.22.0",
+    "redis": "^6.0.0",
+    "ws": "^8.21.0"
   }
 }

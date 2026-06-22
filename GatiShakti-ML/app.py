@@ -91,23 +91,47 @@ class ApproachData(BaseModel):
     arrivalRatePerMin: int
 
 
+class PlateEvent(BaseModel):
+    # ANPR plate read for the Layer-5 Challan module. Plate strings are
+    # synthesized until a real OCR model is wired; the structure is the contract.
+    plate: str
+    approachId: str
+    violation: str  # RED_LIGHT | NO_HELMET | WRONG_LANE | SPEEDING | STOP_LINE
+    confidence: float
+    speedKmph: Optional[int] = None
+    evidenceUrl: Optional[str] = None
+
+
 class Layer2Payload(BaseModel):
     junctionId: str
     timestamp: str
     cvConfidenceScore: float
     approaches: List[ApproachData]
+    plateEvents: List[PlateEvent] = []
 
 
 # Maps each junction approach to a "camera" frame. For this integrated demo we
 # use four of the bundled sample traffic photos as stand-in live feeds; in
 # production each path would be replaced by a real camera capture per approach.
 _SAMPLES_DIR = Path(__file__).resolve().parent / "testing" / "Signals"
-APPROACH_CAMERAS = {
+_DEFAULT_CAMERAS = {
     "NORTH": _SAMPLES_DIR / "traffic1.jpg",
     "SOUTH": _SAMPLES_DIR / "traffic2.jpg",
     "EAST": _SAMPLES_DIR / "traffic3.jpg",
     "WEST": _SAMPLES_DIR / "trafficmicro1.jpg",
 }
+
+# Per-junction camera registry. Each junction maps to its own four approach
+# camera frames; add entries here (or load from config) to bring real per-node
+# cameras online. Unknown junctions fall back to the default sample set so the
+# multi-junction map keeps working before every node has cameras.
+JUNCTION_CAMERAS: dict = {
+    "DEL_DL_ITO_01": _DEFAULT_CAMERAS,
+}
+
+
+def cameras_for(junction_id: str) -> dict:
+    return JUNCTION_CAMERAS.get(junction_id, _DEFAULT_CAMERAS)
 
 
 @app.get("/health")
@@ -135,7 +159,7 @@ def perception_layer2(
     endpoint the STM polls each pipeline cycle.
     """
     approach_images: dict = {}
-    for approach_id, image_path in APPROACH_CAMERAS.items():
+    for approach_id, image_path in cameras_for(junction_id).items():
         if not image_path.exists():
             raise HTTPException(
                 status_code=500,

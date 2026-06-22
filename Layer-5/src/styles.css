@@ -349,7 +349,7 @@ a:hover {
 .hero-bg {
   position: absolute;
   left: 50%;
-  top: -150px;
+  top: -125px;
   transform: translateX(-50%);
   width: min(1920px, 135%);
   height: 760px;
@@ -2427,4 +2427,976 @@ a:hover {
   width: 56px;
   height: 56px;
   object-fit: contain;
+}
+
+/* ============================================================
+   Operator sign-in (role selection)
+   ============================================================ */
+.login-screen {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  background: radial-gradient(
+    1200px 600px at 50% -10%,
+    #eef3fb 0%,
+    var(--bg) 55%
+  );
+}
+.login-screen .tricolour.thin {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+}
+.login-card {
+  width: 100%;
+  max-width: 560px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  padding: 34px 34px 26px;
+}
+.login-head {
+  text-align: center;
+  margin-bottom: 24px;
+}
+.login-head svg {
+  filter: drop-shadow(0 6px 14px rgba(16, 35, 60, 0.16));
+}
+.login-eyebrow {
+  margin: 14px 0 4px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--saffron);
+}
+.login-title {
+  font-size: 25px;
+  color: var(--navy);
+}
+.login-lede {
+  margin: 10px auto 0;
+  max-width: 440px;
+  font-size: 15px;
+  color: var(--ink-2);
+}
+.login-roles {
+  display: grid;
+  gap: 12px;
+}
+.role-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  text-align: left;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 16px 18px;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background 0.15s ease,
+    transform 0.1s ease;
+}
+.role-card:hover {
+  background: var(--surface);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow);
+}
+.role-card:active {
+  transform: translateY(1px);
+}
+.role-card:focus-visible {
+  outline: 2px solid var(--info);
+  outline-offset: 2px;
+}
+.role-ic {
+  font-size: 26px;
+  line-height: 1;
+  width: 46px;
+  height: 46px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  background: #eef4ff;
+  border-radius: 10px;
+}
+.role-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+.role-name {
+  font-family: "Mukta", sans-serif;
+  font-weight: 800;
+  font-size: 17px;
+  color: var(--navy);
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+}
+.role-name-hi {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.role-blurb {
+  font-size: 14px;
+  color: var(--ink-2);
+}
+.role-go {
+  font-size: 20px;
+  color: var(--muted);
+  transition:
+    transform 0.15s ease,
+    color 0.15s ease;
+}
+.role-card:hover .role-go {
+  color: var(--info);
+  transform: translateX(3px);
+}
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 18px 0 12px;
+}
+.login-divider::before,
+.login-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+.sso-row {
+  display: flex;
+  gap: 8px;
+}
+.sso-row .text-input {
+  flex: 1;
+}
+.sso-row .btn {
+  white-space: nowrap;
+}
+.login-notice {
+  margin: 22px 0 0;
+  font-size: 12.5px;
+  color: var(--muted);
+  text-align: center;
+}
+.login-back {
+  display: block;
+  text-align: center;
+  margin-top: 12px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* ============================================================
+   Command Dashboard — city map, incidents, junction matrix
+   ============================================================ */
+.city-map {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.city-node {
+  cursor: pointer;
+}
+.city-node:focus-visible {
+  outline: none;
+}
+.city-node:focus-visible circle:nth-last-of-type(1) {
+  stroke: var(--info);
+  stroke-width: 0.9;
+}
+.city-label {
+  font-size: 2.6px;
+  font-weight: 700;
+  fill: var(--ink-2);
+  font-family: "Noto Sans", sans-serif;
+}
+.city-node-emv {
+  animation: cityPulse 1.6s ease-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+@keyframes cityPulse {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.7);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.5);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .city-node-emv {
+    animation: none;
+  }
+}
+.map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  font-weight: 600;
+}
+.legend-dot,
+.cong-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.map-selected {
+  margin-top: 16px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+}
+.ms-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.ms-head .pill {
+  margin-left: auto;
+}
+.ms-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px 18px;
+}
+@media (max-width: 560px) {
+  .ms-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+.ms-k {
+  display: block;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  font-weight: 700;
+}
+.ms-v {
+  display: block;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--navy);
+  margin-top: 2px;
+}
+.jx-code {
+  font-family: "Mukta", sans-serif;
+  font-weight: 800;
+  color: var(--navy);
+  margin-right: 8px;
+}
+.jx-name {
+  color: var(--ink-2);
+  font-weight: 600;
+}
+.mono {
+  font-variant-numeric: tabular-nums;
+}
+
+/* incident feed */
+.count-badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--navy);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  margin-left: 6px;
+}
+.feed-empty {
+  color: var(--muted);
+  font-size: 14px;
+  margin: 0;
+}
+.incident-feed {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 420px;
+  overflow-y: auto;
+}
+.incident {
+  display: flex;
+  gap: 12px;
+  padding: 11px 13px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  border-left: 4px solid var(--border-strong);
+}
+.incident.sev-critical {
+  border-left-color: var(--danger);
+  background: #fcebeb;
+}
+.incident.sev-warning {
+  border-left-color: var(--warn);
+  background: #fdf2e3;
+}
+.incident.sev-info {
+  border-left-color: var(--info);
+  background: #e9f1fd;
+}
+.inc-ic {
+  font-size: 18px;
+}
+.inc-msg {
+  font-weight: 700;
+  color: var(--ink);
+  font-size: 14.5px;
+}
+.inc-meta {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* junction matrix */
+.matrix-scroll {
+  overflow-x: auto;
+}
+.matrix {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.matrix th {
+  text-align: left;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  font-weight: 700;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.matrix th.num,
+.matrix td.num {
+  text-align: right;
+}
+.matrix td {
+  padding: 11px 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.matrix tbody tr {
+  cursor: pointer;
+}
+.matrix tbody tr:hover {
+  background: var(--surface-2);
+}
+.matrix tr.row-selected {
+  background: #eef4ff;
+}
+.phase-tag {
+  display: inline-block;
+  font-family: "Mukta", sans-serif;
+  font-weight: 800;
+  font-size: 12px;
+  padding: 3px 9px;
+  border-radius: 6px;
+  background: #eef4ff;
+  color: var(--navy);
+}
+.cong-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.cong-pct {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+}
+
+/* ============================================================
+   Signal Control — override form, notice bars
+   ============================================================ */
+.notice-bar {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: #e9f1fd;
+  border: 1px solid #c7ddf7;
+  border-left: 4px solid var(--info);
+  border-radius: var(--radius-sm);
+  padding: 14px 18px;
+  font-size: 14.5px;
+  color: var(--ink-2);
+}
+.notice-bar.error {
+  background: #fcebeb;
+  border-color: #f0b4b4;
+  border-left-color: var(--danger);
+  color: #8a2020;
+}
+.override-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.field-label {
+  font-size: 12.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  font-weight: 700;
+  margin-top: 8px;
+}
+.phase-picker {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.phase-btn {
+  padding: 10px 6px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  border-radius: 9px;
+  font-family: "Mukta", sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+.phase-btn:hover {
+  border-color: var(--info);
+}
+.phase-btn.active {
+  background: var(--navy);
+  border-color: var(--navy);
+  color: #fff;
+}
+.text-input {
+  width: 100%;
+  padding: 11px 13px;
+  border: 1px solid var(--border-strong);
+  border-radius: 9px;
+  font-family: "Noto Sans", sans-serif;
+  font-size: 15px;
+  color: var(--ink);
+}
+.text-input:focus {
+  outline: 2px solid var(--info);
+  outline-offset: 1px;
+  border-color: var(--info);
+}
+.override-form input[type="range"] {
+  width: 100%;
+  accent-color: var(--india-green);
+}
+.override-form .btn {
+  margin-top: 14px;
+}
+.override-active {
+  margin-top: 18px;
+  padding: 16px;
+  background: #fdf2e3;
+  border: 1px solid #f0d9b0;
+  border-radius: var(--radius-sm);
+}
+.oa-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.oa-timer {
+  font-weight: 800;
+  color: var(--warn);
+}
+.oa-line {
+  margin: 0 0 4px;
+  color: var(--ink);
+}
+.oa-reason {
+  margin: 0 0 14px;
+  color: var(--ink-2);
+  font-style: italic;
+}
+.audit-table td {
+  font-size: 13.5px;
+}
+.nowrap {
+  white-space: nowrap;
+}
+
+/* ============================================================
+   Challan review — queue + ANPR evidence
+   ============================================================ */
+.challan-queue {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 520px;
+  overflow-y: auto;
+}
+.challan-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+.challan-row:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-2);
+}
+.challan-row.active {
+  border-color: var(--info);
+  background: #eef4ff;
+}
+.cr-main {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.cr-plate {
+  font-weight: 800;
+  color: var(--navy);
+  font-size: 15px;
+}
+.cr-viol {
+  color: var(--ink-2);
+  font-size: 14px;
+}
+.cr-meta {
+  font-size: 12.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.challan-row .pill {
+  grid-row: 1 / span 2;
+  align-self: center;
+}
+.anpr-frame {
+  position: relative;
+  background: #0c1320;
+  border: 1px solid #1c2940;
+  border-radius: var(--radius-sm);
+  height: 150px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+.anpr-plate {
+  background: #f4d03f;
+  color: #111;
+  font-weight: 800;
+  font-size: 26px;
+  letter-spacing: 0.08em;
+  padding: 8px 18px;
+  border-radius: 6px;
+  border: 2px solid #1a1a1a;
+}
+.anpr-tag {
+  position: absolute;
+  top: 8px;
+  left: 10px;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: #5fd0ff;
+  font-weight: 700;
+}
+.anpr-scanline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: rgba(95, 208, 255, 0.5);
+  animation: anprScan 3s linear infinite;
+}
+@keyframes anprScan {
+  0% {
+    top: 0;
+  }
+  100% {
+    top: 100%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .anpr-scanline {
+    animation: none;
+  }
+}
+.challan-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 18px;
+}
+.challan-actions .btn {
+  flex: 1;
+}
+
+/* ============================================================
+   TI corridor inspector
+   ============================================================ */
+.ti-strip {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  padding: 10px 0 6px;
+}
+.ti-stop {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.ti-bars {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 5px;
+  height: 150px;
+  width: 100%;
+}
+.ti-bar {
+  width: 22px;
+  border-radius: 3px 3px 0 0;
+  min-height: 4px;
+}
+.ti-bar.exp {
+  background: var(--muted);
+  opacity: 0.55;
+}
+.ti-bar.act {
+  background: var(--india-green);
+}
+.ti-bar.act.dev {
+  background: var(--danger);
+}
+.ti-code {
+  font-family: "Mukta", sans-serif;
+  font-weight: 800;
+  font-size: 12px;
+  color: var(--navy);
+}
+.ti-live {
+  font-size: 10px;
+  padding: 2px 8px;
+}
+.ti-conn {
+  position: absolute;
+  top: 0;
+  width: 100%;
+}
+
+/* ============================================================
+   Administration — zones
+   ============================================================ */
+.zone-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+.zone-cell {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  background: var(--surface-2);
+}
+.zone-name {
+  font-family: "Mukta", sans-serif;
+  font-weight: 800;
+  font-size: 16px;
+  color: var(--navy);
+  margin-bottom: 6px;
+}
+.zone-stats {
+  display: flex;
+  gap: 16px;
+  font-size: 13.5px;
+  color: var(--ink-2);
+}
+.zone-stats strong {
+  color: var(--navy);
+}
+
+/* ============================================================
+   EMVS dispatch states
+   ============================================================ */
+.emv-state-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 18px;
+  box-shadow: var(--shadow-sm);
+}
+.esb-label {
+  font-size: 12.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  font-weight: 700;
+}
+.esb-note {
+  color: var(--info);
+  font-size: 14px;
+  font-weight: 600;
+}
+.emv-conflict .btn {
+  margin-top: 8px;
+}
+
+/* ============================================================
+   AI advisory panel
+   ============================================================ */
+.ai-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ai-rec {
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--ai, #7c3aed);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  background: var(--surface-2);
+}
+.ai-rec-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.ai-type {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  padding: 2px 8px;
+  border-radius: 5px;
+  background: #efe7fd;
+  color: #6d28d9;
+}
+.ai-type.ACTION {
+  background: #fde2e2;
+  color: #b91c1c;
+}
+.ai-type.OPTIMAL {
+  background: #e3f3e4;
+  color: #15803d;
+}
+.ai-type.FORECAST {
+  background: #e6eefc;
+  color: #1d4ed8;
+}
+.ai-conf {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.ai-rec-body {
+  font-size: 14px;
+  color: var(--ink);
+}
+
+/* ============================================================
+   Analytics heatmap + comparison
+   ============================================================ */
+.heatmap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-x: auto;
+}
+.heat-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.heat-label {
+  width: 64px;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-2);
+  text-align: right;
+}
+.heat-cells {
+  display: flex;
+  gap: 3px;
+}
+.heat-cell {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.cmp-row {
+  display: grid;
+  grid-template-columns: 130px 1fr 54px;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 0;
+}
+.cmp-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cmp-bar {
+  height: 14px;
+  background: var(--surface-2);
+  border-radius: 7px;
+  overflow: hidden;
+}
+.cmp-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 7px;
+}
+.cmp-val {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--navy);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Sidebar signed-in user block ─────────────────── */
+.sidebar-user {
+  margin-top: auto;
+  border-top: 1px solid var(--border);
+  padding: 14px 8px 6px;
+}
+.su-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.su-ic {
+  font-size: 18px;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  background: #eef4ff;
+  border-radius: 9px;
+}
+.su-text {
+  min-width: 0;
+}
+.su-name {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--navy);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.su-role {
+  font-size: 11.5px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.su-logout {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 9px;
+  padding: 8px 10px;
+  font-family: "Noto Sans", sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+.su-logout:hover {
+  background: #fcebeb;
+  border-color: #f0b4b4;
+  color: var(--danger);
+}
+/* When the user block is present, the dept footer no longer needs
+   the auto top margin (the user block takes that slot). */
+.sidebar-user + .sidebar-foot {
+  margin-top: 8px;
+}
+@media (max-width: 880px) {
+  .sidebar-user {
+    margin-top: 0;
+    border-top: none;
+    border-left: 1px solid var(--border);
+    padding: 6px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .su-row {
+    margin-bottom: 0;
+  }
+  .su-logout {
+    width: auto;
+  }
 }

@@ -1,5 +1,10 @@
 // Shared Layer-3 pipeline configuration (single source of truth)
 
+// Load .env (from the process working dir, i.e. Layer-3_STM/) BEFORE reading any
+// process.env value below. Imported first so every entrypoint that pulls in
+// config — live.ts, the EMV CLI, etc. — gets the same environment.
+import "dotenv/config";
+
 import { loadEmvKeys } from "./emv/emv-keys";
 
 export const PIPELINE_CYCLE_MS = 30_000;
@@ -39,6 +44,35 @@ export const EMV_INGEST_PORT = Number(process.env.EMV_INGEST_PORT ?? 8100);
 // Port for the Layer 5 dashboard SSE gateway. The live pipeline broadcasts one
 // CycleSnapshot per cycle here; the Layer-5 React app subscribes at GET /events.
 export const DASHBOARD_PORT = Number(process.env.DASHBOARD_PORT ?? 8200);
+
+// Durable store location (audit, history, challans). File-backed JSONL/JSON;
+// swap the Persistence adapter for Postgres/TimescaleDB without touching callers.
+export const DATA_DIR = process.env.DATA_DIR ?? ".data";
+
+// When DATABASE_URL is set (or STORE=postgres), the live loop uses the Postgres/
+// TimescaleDB adapter instead of the file store. Otherwise it stays file-backed
+// so the stack still runs with zero infrastructure.
+export const DATABASE_URL = process.env.DATABASE_URL ?? "";
+export const USE_POSTGRES = process.env.STORE === "postgres" || DATABASE_URL.length > 0;
+
+// Redis hot store for live junction/city state (junction:{id}:state). When
+// unset, a no-op store is used and the gateway's in-memory state is the only
+// hot copy — so Redis is optional.
+export const REDIS_URL = process.env.REDIS_URL ?? "";
+
+// Secret used to sign dashboard auth JWTs (HMAC-SHA256). MUST be overridden in
+// production via JWT_SECRET; the default exists only so the demo runs.
+export const JWT_SECRET = process.env.JWT_SECRET ?? "stm-delhi-dev-secret-change-me";
+export const JWT_TTL_SECONDS = Number(process.env.JWT_TTL_SECONDS ?? 8 * 3600);
+
+// Allow passwordless role login (the demo "sign in as a role" buttons). Set
+// ALLOW_DEMO_LOGIN=false in production so only username+password is accepted.
+export const ALLOW_DEMO_LOGIN = process.env.ALLOW_DEMO_LOGIN !== "false";
+
+// SSO stub: stands in for an OIDC/SAML IdP. A real deployment validates an
+// id_token / assertion here; the stub maps an email to a role. Disable with
+// ALLOW_SSO_STUB=false once a real IdP is wired.
+export const ALLOW_SSO_STUB = process.env.ALLOW_SSO_STUB !== "false";
 
 // EMV trust configuration consumed by the junction-side EmvVerifier (Layer 3
 // Security & Trust gate). The junction holds only the PUBLIC key.

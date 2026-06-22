@@ -7,7 +7,7 @@
 // Python service every cycle.
 // ============================================================
 
-import type { Layer2Payload } from "./types/types";
+import type { Layer2Payload, PlateEvent } from "./types/types";
 
 export class Layer2Bridge {
   private readonly baseUrl: string;
@@ -57,10 +57,37 @@ export class Layer2Bridge {
       );
     }
 
-    const payload = (await res.json()) as Layer2Payload;
-    if (!payload?.approaches?.length) {
+    const raw = (await res.json()) as Layer2Payload & { plate_events?: unknown };
+    if (!raw?.approaches?.length) {
       throw new Error("Perception payload had no approaches");
     }
-    return payload;
+    // ANPR pass-through: accept either camelCase plateEvents or the Python
+    // service's snake_case plate_events.
+    const plates = normalizePlateEvents(raw.plateEvents ?? raw.plate_events);
+    if (plates.length) raw.plateEvents = plates;
+    return raw;
   }
+}
+
+function normalizePlateEvents(input: unknown): PlateEvent[] {
+  if (!Array.isArray(input)) return [];
+  const ok = new Set(["RED_LIGHT", "NO_HELMET", "WRONG_LANE", "SPEEDING", "STOP_LINE"]);
+  return input
+    .map((e): PlateEvent | null => {
+      const r = e as Record<string, unknown>;
+      const plate = typeof r.plate === "string" ? r.plate : null;
+      const violation = String(r.violation ?? "").toUpperCase();
+      if (!plate || !ok.has(violation)) return null;
+      return {
+        plate,
+        approachId: (["NORTH", "SOUTH", "EAST", "WEST"].includes(String(r.approachId ?? r.approach_id))
+          ? (r.approachId ?? r.approach_id)
+          : "NORTH") as PlateEvent["approachId"],
+        violation: violation as PlateEvent["violation"],
+        confidence: typeof r.confidence === "number" ? r.confidence : 0.8,
+        ...(typeof r.speedKmph === "number" ? { speedKmph: r.speedKmph } : typeof r.speed_kmph === "number" ? { speedKmph: r.speed_kmph } : {}),
+        ...(typeof r.evidenceUrl === "string" ? { evidenceUrl: r.evidenceUrl } : {}),
+      };
+    })
+    .filter((x): x is PlateEvent => x !== null);
 }

@@ -10,11 +10,27 @@
 // Layer-5/src/types/snapshot.ts — keep the two in sync.
 // ============================================================
 
+import {
+  classCountsFromDetections,
+  congestionLevel,
+  type ClassCounts,
+  type CongestionLevel,
+} from "./congestion";
+import { LIVE_JUNCTION } from "./junctions";
+import { calculatePersonFlow } from "../types/types";
 import type { OrchestratorResult } from "../stm-orchestrator";
-import type { Layer2Payload, EmergencyToken } from "../types/types";
+import type { ActuationCommand, Layer2Payload, EmergencyToken } from "../types/types";
 
 /** Where this cycle's perception came from. */
 export type PerceptionSource = "LIVE_CV" | "MOCK_FALLBACK";
+
+/** High-level timing plan the decision falls under (doc contract + MANUAL). */
+export type PlanType =
+  | "MAX_PRESSURE"
+  | "STARVATION"
+  | "TOD_FALLBACK"
+  | "EMERGENCY"
+  | "MANUAL";
 
 /** Per-approach state, pre-summed for direct rendering. */
 export interface ApproachSnapshot {
@@ -24,6 +40,12 @@ export interface ApproachSnapshot {
   waitingTimeSeconds: number;
   /** Convenience flag: is this the phase Layer 3 chose to drive green. */
   isGreen: boolean;
+  /** Queue length in metres (derived from occupancy when not measured). */
+  queueLengthM: number;
+  /** 5-step congestion ramp for this approach. */
+  congestionLevel: CongestionLevel;
+  /** car/bike/auto/bus/truck split. */
+  classCounts: ClassCounts;
 }
 
 /** Active emergency corridor, or null when none. */
@@ -34,12 +56,47 @@ export interface EmergencySnapshot {
   etaSeconds: number;
 }
 
+/** Optimisation telemetry that justified the decision (doc contract). */
+export interface OptimizationMetrics {
+  /** Total person-weighted demand (PCU) across all approaches. */
+  totalPressurePcu: number;
+  /** PCU served by the chosen green phase this cycle. */
+  servedPcu: number;
+  /** Whether the starvation guard influenced this cycle. */
+  starvationGuardActive: boolean;
+}
+
+export type SignalColor = "RED" | "GREEN" | "YELLOW";
+export type ControllerType = "NTCIP" | "GPIO" | "VENDOR" | "SIMULATED";
+
+/** Layer 4 (Communication & Control) read-back — stm.l4.controller.v1. */
+export interface ControllerSnapshot {
+  controllerType: ControllerType;
+  /** Actual light state per approach as reported by the controller. */
+  signalState: Record<"NORTH" | "SOUTH" | "EAST" | "WEST", SignalColor>;
+  /** Did the controller apply the command, and the round-trip time. */
+  commandAck: { applied: boolean; rttMs: number };
+  junctionHealth: {
+    edgeStatus: "ONLINE" | "DEGRADED" | "OFFLINE";
+    brokerConnected: boolean;
+    lastHeartbeat: string;
+  };
+}
+
 /** Everything the live-ops dashboard needs for one cycle. */
 export interface CycleSnapshot {
   cycle: number;
   /** ISO-8601 UTC; the frontend formats for display. */
   timestamp: string;
   junctionId: string;
+  /** Operator code (e.g. JN-ITO). */
+  code: string;
+  name: string;
+  zone: string;
+  lat: number;
+  lng: number;
+  /** Max approach congestion, normalised 0–1. */
+  congestionScore: number;
 
   perception: {
     source: PerceptionSource;
@@ -49,16 +106,41 @@ export interface CycleSnapshot {
 
   emergency: EmergencySnapshot | null;
 
+  controller: ControllerSnapshot;
+
   decision: {
     executionPath: string; // NORMAL_MODE | EMERGENCY_MODE | FALLBACK_MODE
     targetPhaseId: string;
     durationSeconds: number;
     executionMode: string;
+    planType: PlanType;
+    optimizationMetrics: OptimizationMetrics;
     clearanceIntervals: { yellowSeconds: number; allRedSeconds: number };
     safetyValidationPassed: boolean;
     confidenceScore: number;
     reasonChain: string[];
   };
+}
+
+/** Crude but stable queue-length estimate (metres) from occupancy. */
+function queueLengthFromOccupancy(occupancyPct: number): number {
+  // Assume a ~120 m approach storage at full occupancy.
+  return Math.round((occupancyPct / 100) * 120);
+}
+
+function planTypeFor(executionMode: string, reasonChain: string[]): PlanType {
+  switch (executionMode) {
+    case "MANUAL_OVERRIDE":
+      return "MANUAL";
+    case "GREEN_CORRIDOR":
+      return "EMERGENCY";
+    case "HISTORICAL_FALLBACK":
+    case "SAFE_DEFAULT":
+      return "TOD_FALLBACK";
+    case "NORMAL_MAX_PRESSURE":
+    default:
+      return reasonChain.some((r) => /starv/i.test(r)) ? "STARVATION" : "MAX_PRESSURE";
+  }
 }
 
 /** Build a CycleSnapshot from raw cycle inputs/outputs (no UI logic leaks into the loop). */
@@ -72,20 +154,61 @@ export function buildSnapshot(args: {
   const { cycle, layer2, source, emergency, result } = args;
   const greenPhase = result.finalCommand.targetPhaseId;
 
+  const approaches: ApproachSnapshot[] = layer2.approaches.map((a) => ({
+    approachId: a.approachId,
+    spatialOccupancyPct: a.spatialOccupancyPct,
+    totalVehicles: a.detections.reduce((s, d) => s + d.count, 0),
+    waitingTimeSeconds: a.waitingTimeSeconds,
+    isGreen: a.approachId === greenPhase,
+    queueLengthM: queueLengthFromOccupancy(a.spatialOccupancyPct),
+    congestionLevel: congestionLevel(a.spatialOccupancyPct),
+    classCounts: classCountsFromDetections(a.detections),
+  }));
+
+  const congestionScore =
+    approaches.reduce((m, a) => Math.max(m, a.spatialOccupancyPct), 0) / 100;
+
+  const totalPressurePcu = Math.round(
+    layer2.approaches.reduce((s, a) => s + calculatePersonFlow(a.detections), 0),
+  );
+  const greenApproach = layer2.approaches.find((a) => a.approachId === greenPhase);
+  const servedPcu = greenApproach
+    ? Math.round(calculatePersonFlow(greenApproach.detections))
+    : 0;
+  const mode = (result.finalCommand as ActuationCommand).executionMode;
+
+  // Layer 4 controller read-back (simulated hardware). Green phase shows GREEN,
+  // all others RED; health follows the perception source.
+  const phases: ("NORTH" | "SOUTH" | "EAST" | "WEST")[] = ["NORTH", "SOUTH", "EAST", "WEST"];
+  const signalState = phases.reduce(
+    (acc, p) => ((acc[p] = p === greenPhase ? "GREEN" : "RED"), acc),
+    {} as Record<"NORTH" | "SOUTH" | "EAST" | "WEST", "RED" | "GREEN" | "YELLOW">,
+  );
+  const controller: CycleSnapshot["controller"] = {
+    controllerType: "SIMULATED",
+    signalState,
+    commandAck: { applied: result.safetyValidationPassed, rttMs: 28 + (cycle % 6) * 5 },
+    junctionHealth: {
+      edgeStatus: source === "LIVE_CV" ? "ONLINE" : "DEGRADED",
+      brokerConnected: true,
+      lastHeartbeat: new Date().toISOString(),
+    },
+  };
+
   return {
     cycle,
     timestamp: new Date().toISOString(),
     junctionId: layer2.junctionId,
+    code: LIVE_JUNCTION.code,
+    name: LIVE_JUNCTION.name,
+    zone: LIVE_JUNCTION.zone,
+    lat: LIVE_JUNCTION.lat,
+    lng: LIVE_JUNCTION.lng,
+    congestionScore,
     perception: {
       source,
       cvConfidenceScore: layer2.cvConfidenceScore,
-      approaches: layer2.approaches.map((a) => ({
-        approachId: a.approachId,
-        spatialOccupancyPct: a.spatialOccupancyPct,
-        totalVehicles: a.detections.reduce((s, d) => s + d.count, 0),
-        waitingTimeSeconds: a.waitingTimeSeconds,
-        isGreen: a.approachId === greenPhase,
-      })),
+      approaches,
     },
     emergency: emergency
       ? {
@@ -95,11 +218,18 @@ export function buildSnapshot(args: {
           etaSeconds: emergency.etaSeconds,
         }
       : null,
+    controller,
     decision: {
       executionPath: result.executionPath,
       targetPhaseId: result.finalCommand.targetPhaseId,
       durationSeconds: result.finalCommand.durationSeconds,
-      executionMode: result.finalCommand.executionMode,
+      executionMode: mode,
+      planType: planTypeFor(mode, result.reasonChain),
+      optimizationMetrics: {
+        totalPressurePcu,
+        servedPcu,
+        starvationGuardActive: result.reasonChain.some((r) => /starv/i.test(r)),
+      },
       clearanceIntervals: result.finalCommand.clearanceIntervals,
       safetyValidationPassed: result.safetyValidationPassed,
       confidenceScore: result.confidenceScore,

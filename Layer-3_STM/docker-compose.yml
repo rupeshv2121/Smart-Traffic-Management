@@ -1,0 +1,39 @@
+# TimescaleDB (PostgreSQL + time-series) for durable Layer-3 persistence.
+#
+#   docker compose up -d
+#   DATABASE_URL=postgres://postgres:postgres@localhost:5432/stm npm run live
+#
+# The PostgresPersistence adapter creates its tables on first run and promotes
+# cycle_history to a Timescale hypertable automatically. Without DATABASE_URL the
+# live loop falls back to the file store (.data/), so a DB is optional.
+services:
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    container_name: stm-timescaledb
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: stm
+    ports:
+      - "5432:5432"
+    volumes:
+      - stm-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d stm"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Redis hot store for live junction/city state. Enable with:
+  #   REDIS_URL=redis://localhost:6379 npm run live
+  redis:
+    image: redis:7-alpine
+    container_name: stm-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - stm-redisdata:/data
+
+volumes:
+  stm-pgdata:
+  stm-redisdata:

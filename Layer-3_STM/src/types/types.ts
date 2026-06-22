@@ -52,11 +52,24 @@ export interface ScoredApproach {
   starvationOverride: boolean;
 }
 
+// ANPR plate read from Layer 2 (for Challan). Optional on the payload until the
+// perception service emits them; the challan store ingests any that arrive.
+export interface PlateEvent {
+  plate: string;
+  approachId: "NORTH" | "SOUTH" | "EAST" | "WEST";
+  violation: "RED_LIGHT" | "NO_HELMET" | "WRONG_LANE" | "SPEEDING" | "STOP_LINE";
+  speedKmph?: number;
+  confidence: number; // 0..1
+  evidenceUrl?: string;
+}
+
 export interface Layer2Payload {
   junctionId: string;
   timestamp: string;
   cvConfidenceScore: number; // 0.0 to 1.0
   approaches: ApproachData[];
+  /** ANPR plate reads + evidence (optional until Layer 2 emits them). */
+  plateEvents?: PlateEvent[];
 }
 
 // ============================================================
@@ -241,5 +254,6 @@ export interface ActuationCommand {
     | "NORMAL_MAX_PRESSURE"
     | "GREEN_CORRIDOR"
     | "SAFE_DEFAULT"
-    | "HISTORICAL_FALLBACK";
+    | "HISTORICAL_FALLBACK"
+    | "MANUAL_OVERRIDE";
 }

@@ -9,8 +9,13 @@ export function SystemHealthPage() {
 
   if (!latest) return <EmptyState connection={connection} />;
 
-  const { perception, decision } = latest;
+  const { perception, decision, controller } = latest;
   const cvLive = perception.source === "LIVE_CV";
+  const SIGNAL_DOT: Record<string, string> = {
+    GREEN: "var(--india-green)",
+    RED: "var(--danger)",
+    YELLOW: "#e6a700",
+  };
 
   // Layer status, inferred from the live snapshot.
   const layers = [
@@ -28,6 +33,11 @@ export function SystemHealthPage() {
       n: "Layer 3 · Safety Supervisor",
       ok: decision.safetyValidationPassed,
       note: decision.safetyValidationPassed ? "All interlocks satisfied" : "Command blocked",
+    },
+    {
+      n: "Layer 4 · Signal Controller",
+      ok: controller.commandAck.applied && controller.junctionHealth.edgeStatus !== "OFFLINE",
+      note: `${controller.controllerType} · ack ${controller.commandAck.applied ? "OK" : "FAIL"} · RTT ${controller.commandAck.rttMs}ms`,
     },
     {
       n: "Layer 5 · Dashboard feed (SSE)",
@@ -72,6 +82,45 @@ export function SystemHealthPage() {
             </span>
           </div>
         ))}
+      </section>
+
+      <section className="card mb-20">
+        <h2 className="card-title">Layer 4 · Controller Read-back</h2>
+        <div className="kv">
+          <span className="k">Controller type</span>
+          <span className="v">{controller.controllerType}</span>
+        </div>
+        <div className="kv">
+          <span className="k">Signal state</span>
+          <span className="v" style={{ display: "flex", gap: 12 }}>
+            {(["NORTH", "SOUTH", "EAST", "WEST"] as const).map((p) => (
+              <span key={p} style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                <span
+                  className="cong-dot"
+                  style={{ background: SIGNAL_DOT[controller.signalState[p]] ?? "var(--muted)" }}
+                />
+                {p[0]}
+              </span>
+            ))}
+          </span>
+        </div>
+        <div className="kv">
+          <span className="k">Command ack</span>
+          <span className="v">
+            {controller.commandAck.applied ? "Applied" : "Not applied"} · RTT{" "}
+            {controller.commandAck.rttMs}ms
+          </span>
+        </div>
+        <div className="kv">
+          <span className="k">Junction health</span>
+          <span className={`pill ${controller.junctionHealth.edgeStatus === "ONLINE" ? "ok" : controller.junctionHealth.edgeStatus === "DEGRADED" ? "warn" : "crit"}`}>
+            {controller.junctionHealth.edgeStatus}
+          </span>
+        </div>
+        <div className="kv">
+          <span className="k">Broker</span>
+          <span className="v">{controller.junctionHealth.brokerConnected ? "Connected" : "Disconnected"}</span>
+        </div>
       </section>
 
       <section className="card">

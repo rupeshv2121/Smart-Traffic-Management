@@ -1,4 +1,11 @@
 node_modules
+dist
+
+# local env (committed template is .env.example)
+.env
 
 # EMV dev keypair (private key must never be committed)
 .emv-keys.json
+
+# durable store (audit/history/challans)
+.data/

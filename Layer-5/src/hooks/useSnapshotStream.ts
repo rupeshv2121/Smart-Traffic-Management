@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { EVENTS_URL } from "../config";
-import type { CycleSnapshot } from "../types/snapshot";
+import type { CitySnapshot, CycleSnapshot } from "../types/snapshot";
 
 export type ConnectionState = "connecting" | "live" | "disconnected";
 
@@ -10,6 +10,8 @@ export interface SnapshotStream {
   latest: CycleSnapshot | null;
   /** Recent cycles, newest last (bounded). Seeded by the gateway's replay. */
   history: CycleSnapshot[];
+  /** Most recent city-wide snapshot (Command Dashboard), or null. */
+  city: CitySnapshot | null;
   connection: ConnectionState;
 }
 
@@ -23,6 +25,7 @@ const HISTORY_LIMIT = 60;
 export function useSnapshotStream(): SnapshotStream {
   const [latest, setLatest] = useState<CycleSnapshot | null>(null);
   const [history, setHistory] = useState<CycleSnapshot[]>([]);
+  const [city, setCity] = useState<CitySnapshot | null>(null);
   const [connection, setConnection] = useState<ConnectionState>("connecting");
   const seenCycles = useRef<Set<number>>(new Set());
 
@@ -53,8 +56,17 @@ export function useSnapshotStream(): SnapshotStream {
       });
     });
 
+    source.addEventListener("city", (ev) => {
+      setConnection("live");
+      try {
+        setCity(JSON.parse((ev as MessageEvent).data) as CitySnapshot);
+      } catch {
+        /* ignore malformed frame */
+      }
+    });
+
     return () => source.close();
   }, []);
 
-  return { latest, history, connection };
+  return { latest, history, city, connection };
 }

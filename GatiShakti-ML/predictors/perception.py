@@ -25,6 +25,8 @@ exactly that payload, so the STM runs on genuine computer-vision perception
 instead of the mock generator.
 """
 
+import random
+import string
 from datetime import datetime, timezone
 from typing import Dict, List
 
@@ -34,6 +36,10 @@ import numpy as np
 # Reuse the lazily-loaded YOLO singleton from the signal predictor so the
 # 19 MB weights file is read from disk only once per process.
 from predictors.Signal import get_model
+from predictors.anpr import read_plate
+from predictors.obs import get_logger
+
+log = get_logger("perception")
 
 # ---------------------------------------------------------------------------
 # COCO class id -> Layer-3 STM VehicleType
@@ -55,6 +61,59 @@ COCO_TO_STM_VEHICLE: Dict[int, str] = {
 # Every STM vehicle type we may emit (kept so the detections array has a
 # stable, predictable shape the orchestrator can rely on).
 STM_VEHICLE_TYPES: List[str] = ["Motorcycle", "Car", "Bus", "HeavyTruck"]
+
+# ANPR violation types understood by the Layer-5 Challan module.
+_VIOLATIONS = ["RED_LIGHT", "NO_HELMET", "WRONG_LANE", "SPEEDING", "STOP_LINE"]
+_PLATE_SERIES = ["DL1C", "DL3C", "DL5S", "DL8S", "DL9C", "HR26", "UP14"]
+
+
+def _synth_plate() -> str:
+    """A plausible Delhi-region plate. Synthetic until a real OCR model is wired."""
+    series = random.choice(_PLATE_SERIES)
+    letters = "".join(random.choice(string.ascii_uppercase) for _ in range(2))
+    return f"{series}{letters}{random.randint(1000, 9999)}"
+
+
+def synthesize_plate_events(
+    approaches: List[dict],
+    approach_images: Dict[str, bytes] | None = None,
+) -> List[dict]:
+    """
+    Produce ANPR `plate_events` from the per-approach detections.
+
+    The plate STRING is read by the OCR hook (predictors/anpr.read_plate) when a
+    backend is installed; otherwise it is synthesized. The pipe is real either
+    way: events flow through the Layer-3 bridge into the Layer-5 Challan queue.
+    Violation type is biased by the vehicle mix actually detected (e.g. a
+    two-wheeler-heavy frame skews toward NO_HELMET).
+    """
+    images: Dict[str, "np.ndarray"] = {}
+    if approach_images:
+        for aid, raw in approach_images.items():
+            decoded = cv2.imdecode(np.frombuffer(raw, np.uint8), cv2.IMREAD_COLOR)
+            if decoded is not None:
+                images[aid] = decoded
+
+    events: List[dict] = []
+    for ap in approaches:
+        # Low rate so the queue grows realistically, gated on real detections.
+        total = sum(d["count"] for d in ap.get("detections", []))
+        if total == 0 or random.random() > 0.25:
+            continue
+        has_bike = any(d["type"] == "Motorcycle" and d["count"] > 0 for d in ap["detections"])
+        violation = "NO_HELMET" if (has_bike and random.random() < 0.5) else random.choice(_VIOLATIONS)
+        img = images.get(ap["approachId"])
+        plate = (read_plate(img) if img is not None else None) or _synth_plate()
+        event = {
+            "plate": plate,
+            "approachId": ap["approachId"],
+            "violation": violation,
+            "confidence": round(0.78 + random.random() * 0.2, 3),
+        }
+        if violation == "SPEEDING":
+            event["speedKmph"] = random.randint(62, 88)
+        events.append(event)
+    return events
 
 
 def analyze_approach(image_bytes: bytes, approach_id: str) -> dict:
@@ -163,9 +222,19 @@ def build_layer2_payload(
 
     cv_confidence = round(max(0.0, min(1.0, cv_confidence)), 4)
 
+    plate_events = synthesize_plate_events(approaches, approach_images)
+    log.info(
+        "layer2_built",
+        junction=junction_id,
+        cv_confidence=cv_confidence,
+        approaches=len(approaches),
+        plate_events=len(plate_events),
+    )
+
     return {
         "junctionId": junction_id,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "cvConfidenceScore": cv_confidence,
         "approaches": approaches,
+        "plateEvents": plate_events,
     }
