@@ -3400,3 +3400,69 @@ a:hover {
     width: auto;
   }
 }
+
+/* ============================================================
+   Analytics — 24h time-series chart + sparklines
+   ============================================================ */
+.ts-chart {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.ts-grid {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+.ts-area {
+  fill: var(--india-green);
+  opacity: 0.1;
+}
+.ts-line-thr {
+  stroke: var(--india-green);
+  stroke-width: 2;
+}
+.ts-line-wait {
+  stroke: var(--warn);
+  stroke-width: 2;
+  stroke-dasharray: 4 3;
+}
+.ts-axis-x,
+.ts-axis-l,
+.ts-axis-r {
+  font-size: 10px;
+  fill: var(--muted);
+}
+.ts-axis-l {
+  fill: var(--india-green);
+}
+.ts-axis-r {
+  fill: var(--warn);
+}
+
+.spark-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.spark-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+.spark-value {
+  font-family: "Mukta", sans-serif;
+  font-weight: 800;
+  font-size: 26px;
+  line-height: 1;
+}
+.sparkline {
+  width: 100%;
+  height: 40px;
+  margin-top: 4px;
+}
+.spark-empty {
+  height: 40px;
+  margin-top: 4px;
+  border-bottom: 1px dashed var(--border);
+}

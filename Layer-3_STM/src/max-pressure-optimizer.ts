@@ -58,38 +58,49 @@ const ALL_RED_TIME = 2;
 const SCALING_FACTOR = 1.5;
 const EXTENSION_SEC = 10;
 const CONF_THRESHOLD = 0.7;
-// Floor for the downstream-availability multiplier so a fully saturated
-// downstream never drops a non-starved approach's pressure to absolute zero.
-const DOWNSTREAM_AVAILABILITY_FLOOR = 0.1;
+// Geometric weight on the downstream term (Wj) — how hard a saturated downstream
+// suppresses release. Tuned so a fully-jammed exit (100%) cancels a comparable
+// amount of upstream demand.
+const DOWNSTREAM_WEIGHT = 1.0;
+// Post-corridor recovery: after an EMV corridor dissolves, the held approaches
+// accumulated spillback. For RECOVERY_CYCLES cycles they get an explicit demand
+// boost (Wr·occupancy) so the optimizer grants them extended green to clear it.
+const RECOVERY_CYCLES = 3;
+const RECOVERY_BOOST_WEIGHT = 2.0;
 const DEFAULT_HISTORICAL_GREEN = 30;
 
-// ─── Pressure Calculation (True Max-Pressure) ─────────────────
-// Classic max-pressure releases the movement whose upstream demand is high
-// AND whose downstream can actually absorb it. We scale the (large, composite)
-// upstream priority score by a normalised downstream-availability factor in
-// [0,1], so a jammed downstream suppresses release and prevents spillback —
-// instead of subtracting a raw occupancy percentage that barely moved the
-// ranking. Starved approaches bypass the damping so they are eventually served.
+// ─── Pressure Calculation (True Max-Pressure, additive form) ─────────────────
+// Classic max-pressure releases the movement whose UPSTREAM demand exceeds what
+// the DOWNSTREAM can absorb. We compute the spec's additive differential
+//   Pm = max(0, Σ_upstream(Wi·Oi) − Σ_downstream(Wj·Oj))
+// where the upstream term is the person-weighted demand score (Wi·Oi already
+// folded into priorityScore via VEHICLE_WEIGHTS + queue/wait), and the downstream
+// term is a geometric-weighted exit occupancy that subtracts available headroom.
+// Starved approaches drop the downstream penalty so they are eventually served;
+// during post-corridor recovery the held approaches get an extra demand boost.
 function calculatePressure(
   scored: ScoredApproach,
   downstream: DownstreamDensity[],
+  recoveryActive: boolean,
 ): number {
   const ds = downstream.find(
     (d) => d.direction.toUpperCase() === scored.direction,
   );
   const downstreamOccupancyPct = ds ? ds.occupancyPct : 0;
 
-  // Normalise occupancy (0–100%) into available headroom (1 = empty, 0 = full).
-  const availability = Math.max(
-    0,
-    Math.min(1, 1 - downstreamOccupancyPct / 100),
-  );
+  // Σ_upstream(Wi·Oi): person-weighted demand, plus a recovery boost that lets
+  // the high-occupancy held approaches reclaim green after a corridor.
+  const recoveryBoost = recoveryActive
+    ? RECOVERY_BOOST_WEIGHT * downstreamOccupancyPct
+    : 0;
+  const upstreamDemand = scored.priorityScore + recoveryBoost;
 
-  const factor = scored.starvationOverride
-    ? 1
-    : Math.max(DOWNSTREAM_AVAILABILITY_FLOOR, availability);
+  // Σ_downstream(Wj·Oj): saturation penalty; starved approaches bypass it.
+  const downstreamPenalty = scored.starvationOverride
+    ? 0
+    : DOWNSTREAM_WEIGHT * downstreamOccupancyPct;
 
-  return scored.priorityScore * factor;
+  return Math.max(0, upstreamDemand - downstreamPenalty);
 }
 
 // ─── Green Time Calculation ───────────────────────────────────
@@ -162,6 +173,7 @@ export function runMaxPressureOptimizer(
   currentPhase: PhaseState,
   confidenceScore: number,
   historicalGreenTime?: number,
+  recoveryActive: boolean = false,
 ): ProposedPlan {
   // ─── Confidence Gate ────────────────────────────────────
   if (confidenceScore < CONF_THRESHOLD) {
@@ -179,7 +191,7 @@ export function runMaxPressureOptimizer(
   const starvationMap: Record<string, boolean> = {};
 
   scoredApproaches.forEach((scored) => {
-    pressureMap[scored.direction] = calculatePressure(scored, downstream);
+    pressureMap[scored.direction] = calculatePressure(scored, downstream, recoveryActive);
     scoreMap[scored.direction] = scored.priorityScore;
     flowMap[scored.direction] = scored.personFlow;
     spillbackMap[scored.direction] = scored.spillbackBoost;
@@ -250,6 +262,9 @@ export function runMaxPressureOptimizer(
 // optimizer instance (or a later run that reuses the same junction id).
 export class MaxPressureOptimizer {
   private readonly pausedJunctions = new Set<string>();
+  // Remaining post-corridor recovery cycles per junction (>0 ⇒ boost held
+  // approaches so they clear the spillback that built up during the corridor).
+  private readonly recoveryCycles = new Map<string, number>();
 
   /** Suspend normal optimization for a junction while an EMV corridor is active. */
   public pause(junctionId: string): void {
@@ -260,18 +275,26 @@ export class MaxPressureOptimizer {
     );
   }
 
-  /** Resume normal max-pressure optimization once the corridor has cleared. */
+  /** Resume normal max-pressure optimization once the corridor has cleared, and
+   *  arm the explicit post-corridor recovery window for the held approaches. */
   public resume(junctionId: string): void {
     this.pausedJunctions.delete(junctionId);
+    this.recoveryCycles.set(junctionId, RECOVERY_CYCLES);
     console.log(
       `[RESUMED] Junction ${junctionId} — returning to normal mode. ` +
-        `Max-pressure recovery begins automatically.`,
+        `Post-corridor recovery armed for ${RECOVERY_CYCLES} cycles ` +
+        `(held approaches get extra green to clear spillback).`,
     );
   }
 
   /** Whether a junction is currently paused for an EMV corridor. */
   public isPaused(junctionId: string): boolean {
     return this.pausedJunctions.has(junctionId);
+  }
+
+  /** Whether a junction is in its post-corridor recovery window this cycle. */
+  public isRecovering(junctionId: string): boolean {
+    return (this.recoveryCycles.get(junctionId) ?? 0) > 0;
   }
 
   /**
@@ -290,6 +313,19 @@ export class MaxPressureOptimizer {
     if (this.pausedJunctions.has(junctionId)) {
       return buildEMVOverridePlan(junctionId);
     }
+
+    // Consume one recovery cycle (if armed) and apply the held-approach boost.
+    const remaining = this.recoveryCycles.get(junctionId) ?? 0;
+    const recoveryActive = remaining > 0;
+    if (recoveryActive) {
+      if (remaining <= 1) this.recoveryCycles.delete(junctionId);
+      else this.recoveryCycles.set(junctionId, remaining - 1);
+      console.log(
+        `[RECOVERY] Junction ${junctionId} — post-corridor recovery active ` +
+          `(${remaining} cycle(s) left): boosting held approaches.`,
+      );
+    }
+
     return runMaxPressureOptimizer(
       junctionId,
       approaches,
@@ -297,6 +333,7 @@ export class MaxPressureOptimizer {
       currentPhase,
       confidenceScore,
       historicalGreenTime,
+      recoveryActive,
     );
   }
 }

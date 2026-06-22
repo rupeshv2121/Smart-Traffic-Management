@@ -56,6 +56,63 @@ export interface OptimizationMetrics {
 export type SignalColor = "RED" | "GREEN" | "YELLOW";
 export type ControllerType = "NTCIP" | "GPIO" | "VENDOR" | "SIMULATED";
 
+// ── Green-Corridor (EMVS / TI) ───────────────────────────────
+// Mirror of Layer-3_STM/src/emv/corridor-manager.ts.
+
+export type CorridorStatus = "IDLE" | "CORRIDOR_ACTIVE" | "CONFLICT" | "ARRIVED";
+export type LegState = "RESERVED" | "CLEARED" | "PENDING" | "ABANDONED";
+export type TiState = "STANDBY" | "MONITORING" | "DEVIATION" | "COMPLETED";
+
+export interface CorridorLeg {
+  junctionId: string;
+  code: string;
+  index: number;
+  state: LegState;
+}
+
+export interface CorridorView {
+  emvId: string;
+  tokenId: string;
+  priorityClass: PriorityClass;
+  etaSeconds: number;
+  targetPhaseId: string;
+  /** Ordered junction codes along the planned route. */
+  route: string[];
+  legs: CorridorLeg[];
+  currentIndex: number;
+  granted: boolean;
+  heldReason: string | null;
+  replans: number;
+  status: CorridorStatus;
+  /** 0–1: cleared legs / total legs — the TI compliance score. */
+  compliance: number;
+}
+
+export interface CorridorSnapshot {
+  status: CorridorStatus;
+  tiState: TiState;
+  active: CorridorView | null;
+  conflicts: CorridorView[];
+  all: CorridorView[];
+  reservedJunctions: number;
+}
+
+// ── Resilience ladder ────────────────────────────────────────
+// Mirror of Layer-3_STM/src/resilience-handler.ts LadderState.
+
+export type LadderState =
+  | "FULL_ADAPTIVE"
+  | "DEGRADED_SENSING"
+  | "LOCALLY_AUTONOMOUS"
+  | "TOTAL_FAILSAFE";
+
+export interface ResilienceSnapshot {
+  ladderState: LadderState;
+  brokerConnected: boolean;
+  heartbeatAgeMs: number;
+  edgeComputeOk: boolean;
+}
+
 export interface ControllerSnapshot {
   controllerType: ControllerType;
   signalState: Record<ApproachId, SignalColor>;
@@ -83,6 +140,10 @@ export interface CycleSnapshot {
     approaches: ApproachSnapshot[];
   };
   emergency: EmergencySnapshot | null;
+  /** Multi-junction Green-Corridor state (routing, reservations, sequencing). */
+  corridor: CorridorSnapshot;
+  /** 4-state resilience ladder + the link health behind it. */
+  resilience: ResilienceSnapshot;
   controller: ControllerSnapshot;
   decision: {
     executionPath: string;

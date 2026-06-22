@@ -42,10 +42,13 @@ import { buildSnapshot } from "./dashboard/snapshot";
 import { MockEmvDispatch } from "./emv/emv-dispatch";
 import { loadEmvKeys } from "./emv/emv-keys";
 import { EmvIngestServer } from "./emv/emv-ingest-server";
+import { CorridorManager } from "./emv/corridor-manager";
+import { aStarRoute } from "./emv/emv-router";
+import { cityGraph } from "./emv/junction-graph";
 import { Layer2Bridge } from "./layer2-bridge";
 import { MockDataGenerator } from "./mock-data/mock_generator";
 import { STMOrchestrator } from "./stm-orchestrator";
-import { PRIORITY_CLASS_MULTIPLIER, type Layer2Payload } from "./types/types";
+import { type Layer2Payload } from "./types/types";
 
 const bridge = new Layer2Bridge(PERCEPTION_URL, JUNCTION_ID);
 // The mock generator still supplies the historical-timing database and a
@@ -56,11 +59,19 @@ const orchestrator = new STMOrchestrator(orchestratorConfig);
 // Static defaults; the live loop derives real time-of-day plans from persisted
 // history each cycle and falls back to these when history is thin.
 const fallbackDefaults = generator.getHistoricalData();
+// Multi-junction Green-Corridor coordinator (A*/D* Lite routing, reservations,
+// pass-detection, and converging-EMV sequencing). Sits above the per-junction
+// verifier/orchestrator and feeds the EMVS + TI dashboards.
+const corridorManager = new CorridorManager(JUNCTION_ID);
+// Default destination when a dispatch omits one: AIIMS (a hospital corridor).
+const DEFAULT_EMV_DESTINATION = "DEL_DL_AIIMS_05";
 // EMV telemetry intake (Layer 1 second sensing stream). A revoke on the
-// endpoint is forwarded into the junction verifier's blocklist.
-const emvIngest = new EmvIngestServer(EMV_INGEST_PORT, (tokenId) =>
-  orchestrator.revokeEmvToken(tokenId),
-);
+// endpoint is forwarded into the junction verifier's blocklist AND ends the
+// corridor (releases all reservations, promotes any held EMV).
+const emvIngest = new EmvIngestServer(EMV_INGEST_PORT, (tokenId) => {
+  orchestrator.revokeEmvToken(tokenId);
+  corridorManager.endRunByTokenId(tokenId);
+});
 // Durable store (audit, history, challans, registry) — survives restarts.
 // File-backed by default; Postgres/TimescaleDB when DATABASE_URL is set.
 // `let` so we can fall back to the file store if a configured DB is unreachable.
@@ -79,23 +90,42 @@ const dispatchAuthority = new MockEmvDispatch(
   JUNCTION_LOCATION,
 );
 
-// EMV dispatch with conflict resolution: a higher-priority request preempts a
-// lower one; an equal/lower one is rejected as a CONFLICT for the dispatcher.
+// EMV dispatch with A* routing + safe-sequencing conflict resolution.
+// 1. Compute the corridor route ITO → destination (A* over the city graph).
+// 2. Issue a signed, route-scoped token and register it with the corridor
+//    manager, which sequences converging EMVs by priority then ETA.
+// 3. The winner is granted the corridor (submitted to the junction); a loser is
+//    HELD (CONFLICT) and promoted automatically the moment the winner clears.
 function dispatchEmv(params: DispatchParams): DispatchResult {
-  const active = emvIngest.getActiveToken();
-  if (active) {
-    if (PRIORITY_CLASS_MULTIPLIER[params.priorityClass] <= PRIORITY_CLASS_MULTIPLIER[active.priorityClass]) {
-      return { ok: false, conflict: true, active: { emvId: active.emvId, priorityClass: active.priorityClass } };
-    }
-  }
+  const destination =
+    params.destinationJunctionId && cityGraph.has(params.destinationJunctionId)
+      ? params.destinationJunctionId
+      : DEFAULT_EMV_DESTINATION;
+  const route = aStarRoute(JUNCTION_ID, destination) ?? [JUNCTION_ID];
+
   const token = dispatchAuthority.issue({
     emvId: params.emvId ?? `AMB-${Math.floor(Math.random() * 9999)}`,
     priorityClass: params.priorityClass,
     etaSeconds: params.etaSeconds,
     targetPhaseId: params.targetPhaseId,
+    routeJunctions: route,
   });
-  emvIngest.submit(token);
-  return { ok: true, token };
+
+  const resolution = corridorManager.register(token);
+  if (resolution.granted) {
+    emvIngest.submit(token);
+    return { ok: true, token };
+  }
+  // Held behind a higher-priority/closer EMV — queued for safe sequencing.
+  const active = emvIngest.getActiveToken();
+  return {
+    ok: false,
+    conflict: true,
+    active: {
+      emvId: active?.emvId ?? resolution.grantedEmvId,
+      priorityClass: active?.priorityClass ?? params.priorityClass,
+    },
+  };
 }
 
 // Peer junctions for the Command Dashboard city map, each driven through the
@@ -133,6 +163,8 @@ async function acquireLayer2(): Promise<{ data: Layer2Payload; source: string }>
 
 async function runPipeline() {
   cycleCount++;
+  // Edge liveness pulse for the resilience ladder (30s silence ⇒ STATE 2).
+  orchestrator.recordHeartbeat();
   const timestamp = new Date().toLocaleTimeString();
 
   console.log("\n" + "═".repeat(70));
@@ -154,6 +186,29 @@ async function runPipeline() {
       })
       .join(", ")}`,
   );
+
+  // ── Green-Corridor coordination: routing · reservations · sequencing ──
+  // Pass-detection from the active EMV's GPS, advance corridors along their A*/
+  // D* Lite route, promote a HELD EMV when the winner clears, and stop preempting
+  // once a vehicle ARRIVES.
+  const peekToken = emvIngest.getActiveToken();
+  if (peekToken) {
+    // Track tokens that arrived over the REAL Layer-1 intake / emv:dispatch CLI
+    // (the dashboard path already registers on dispatch). register() is
+    // idempotent, so this just ensures every active token has a corridor.
+    corridorManager.register(peekToken);
+    corridorManager.updateGps(peekToken.emvId, peekToken.gpsTrack);
+  }
+  corridorManager.tick();
+  const grantedToken = corridorManager.grantedToken();
+  if (grantedToken) {
+    if (grantedToken.tokenId !== emvIngest.getActiveToken()?.tokenId) {
+      emvIngest.submit(grantedToken);
+    }
+  } else if (emvIngest.getActiveToken()) {
+    emvIngest.clearActive(); // corridor finished / arrived → resume normal flow
+  }
+  const corridorSnapshot = corridorManager.snapshot();
 
   const emergencyToken = emvIngest.getActiveToken();
 
@@ -263,6 +318,7 @@ async function runPipeline() {
     source: source === "LIVE_CV" ? "LIVE_CV" : "MOCK_FALLBACK",
     emergency: emergencyToken,
     result: orchestrationResult,
+    corridor: corridorSnapshot,
   });
   dashboard.broadcast(snapshot);
 
@@ -317,6 +373,16 @@ async function main() {
 
   // OpenTelemetry tracing (no-op unless OTEL_* env configured).
   initTracing();
+
+  // Resilience ladder chaos toggles (Architecture §6). Default = healthy STATE 0.
+  //   BROKER_CONNECTED=false → STATE 2 (locally autonomous, no coordination)
+  //   EDGE_FAULT=true        → STATE 3 (total fail-safe → fixed-time default)
+  orchestrator.setBrokerConnected(process.env.BROKER_CONNECTED !== "false");
+  orchestrator.setEdgeFault(process.env.EDGE_FAULT === "true");
+  if (process.env.BROKER_CONNECTED === "false")
+    console.log("⚠️  BROKER_CONNECTED=false → resilience STATE 2 (locally autonomous).");
+  if (process.env.EDGE_FAULT === "true")
+    console.log("⛔ EDGE_FAULT=true → resilience STATE 3 (total fail-safe / fixed-time).");
 
   // Open the durable store and construct the stores that read from it. Doing
   // this before serving means the Postgres adapter's caches are hydrated.

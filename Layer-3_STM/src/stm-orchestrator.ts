@@ -15,7 +15,14 @@ import {
   ProposedPlan,
 } from "./max-pressure-optimizer";
 import { EmvTrustConfig, EmvVerifier } from "./emv/emv-verifier";
-import { ConfidenceThresholds, ResilienceHandler } from "./resilience-handler";
+import {
+  ConfidenceThresholds,
+  computeLadderState,
+  LadderState,
+  LinkMonitor,
+  LinkSnapshot,
+  ResilienceHandler,
+} from "./resilience-handler";
 import { SafetyConfig, SafetySupervisor } from "./safety-supervisor";
 import {
   ActuationCommand,
@@ -48,6 +55,10 @@ export interface OrchestratorResult {
   safetyValidationPassed: boolean;
   confidenceScore: number;
   reasonChain: string[]; // Audit trail of decisions
+  /** Current rung of the 4-state resilience ladder this cycle. */
+  ladderState: LadderState;
+  /** Coordination-link health (broker/heartbeat/edge) behind the ladder state. */
+  link: LinkSnapshot;
 }
 
 /**
@@ -72,12 +83,21 @@ export class STMOrchestrator {
   private lastGreenTracker: Record<string, number>;
   private emvCorridorActive: boolean;
   private emvVerifier: EmvVerifier | null;
+  private linkMonitor: LinkMonitor;
+  private criticalConfidence: number;
+  // The ladder rung / link health computed this cycle, stamped onto every result.
+  private lastLadderState: LadderState = "FULL_ADAPTIVE";
+  private lastLink: LinkSnapshot;
 
   constructor(config: OrchestratorConfig) {
     this.config = config;
     this.safetyValidator = new SafetySupervisor(config.safetyConfig);
     this.resilienceHandler = new ResilienceHandler(config.resilienceThresholds);
     this.optimizer = new MaxPressureOptimizer();
+    this.linkMonitor = new LinkMonitor();
+    this.criticalConfidence =
+      config.resilienceThresholds?.criticalLowerBound ?? 0.7;
+    this.lastLink = this.linkMonitor.snapshot();
     this.emvVerifier = config.emvTrust
       ? new EmvVerifier(config.emvTrust)
       : null;
@@ -150,11 +170,60 @@ export class STMOrchestrator {
       reasonChain.push(`EMV corridor ended — resuming normal optimization`);
     }
 
+    // ===== STAGE 0b: Resilience Ladder (coordination + edge health) =====
+    // Combine the perception axis (CV confidence) with the link axis (broker /
+    // heartbeat / edge compute) into the current ladder rung. A TOTAL_FAILSAFE
+    // (edge/hardware fault) short-circuits to the deterministic fixed-time plan;
+    // a LOCALLY_AUTONOMOUS rung (broker/heartbeat lost) keeps optimising at the
+    // edge but is flagged, since cross-junction coordination is gone.
+    this.lastLink = this.linkMonitor.snapshot();
+    this.lastLadderState = computeLadderState(
+      layer2Data.cvConfidenceScore,
+      this.criticalConfidence,
+      this.lastLink,
+    );
+
+    if (this.lastLadderState === "TOTAL_FAILSAFE") {
+      reasonChain.push(
+        `RESILIENCE STATE 3 — TOTAL_FAILSAFE: edge compute/hardware fault → ` +
+          `Safety Supervisor fixed-time default.`,
+      );
+      return this.produceFallbackCommand(
+        commandId,
+        layer2Data.junctionId,
+        historicalPlans,
+        "SAFE_DEFAULT",
+        reasonChain,
+        layer2Data.cvConfidenceScore,
+      );
+    }
+
+    if (this.lastLadderState === "LOCALLY_AUTONOMOUS") {
+      reasonChain.push(
+        `RESILIENCE STATE 2 — LOCALLY_AUTONOMOUS: ` +
+          `${!this.lastLink.brokerConnected ? "broker disconnected" : "heartbeat stale"} → ` +
+          `running max-pressure at the edge (no cross-junction coordination).`,
+      );
+    }
+
+    // A VERIFIED EMV corridor is GPS-and-token-primary (Architecture §6,
+    // "Degraded sensing"): it must NOT be suppressed by perception-degradation
+    // fallbacks (stale frames / low CV confidence), because it does not depend on
+    // the camera. Only a TOTAL_FAILSAFE (handled above) overrides it. We bypass
+    // the two perception fallbacks below when a token survived verification.
+    const emvPrimary = emergencyToken !== null;
+    if (emvPrimary) {
+      reasonChain.push(
+        `EMV corridor is GPS/token-primary — bypassing perception-degradation ` +
+          `fallbacks (stale data / low CV confidence) for this preemption.`,
+      );
+    }
+
     // ===== STAGE 1: Data Staleness Check =====
     const dataAge = this.calculateDataAgeSeconds(layer2Data.timestamp);
     const maxAge = this.config.maxDataAgeSeconds ?? 10;
 
-    if (dataAge > maxAge) {
+    if (dataAge > maxAge && !emvPrimary) {
       reasonChain.push(
         `STALE_DATA: Layer 2 data is ${dataAge}s old (threshold: ${maxAge}s)`,
       );
@@ -177,7 +246,7 @@ export class STMOrchestrator {
       );
     reasonChain.push(`Resilience Check: ${resilienceDecision.action}`);
 
-    if (resilienceDecision.action === "SWITCH_TO_HISTORICAL_FALLBACK") {
+    if (resilienceDecision.action === "SWITCH_TO_HISTORICAL_FALLBACK" && !emvPrimary) {
       reasonChain.push(
         `Confidence too low: ${(
           resilienceDecision.confidenceScore * 100
@@ -193,7 +262,7 @@ export class STMOrchestrator {
       );
     }
 
-    if (resilienceDecision.action === "MAINTAIN_FALLBACK") {
+    if (resilienceDecision.action === "MAINTAIN_FALLBACK" && !emvPrimary) {
       reasonChain.push(`Continuing fallback: Confidence still below threshold`);
       return this.produceFallbackCommand(
         commandId,
@@ -384,6 +453,8 @@ export class STMOrchestrator {
       safetyValidationPassed: safetyResult.isSafe,
       confidenceScore: resilienceDecision.confidenceScore,
       reasonChain,
+      ladderState: this.lastLadderState,
+      link: this.lastLink,
     };
   }
 
@@ -423,6 +494,8 @@ export class STMOrchestrator {
       safetyValidationPassed: true,
       confidenceScore,
       reasonChain,
+      ladderState: this.lastLadderState,
+      link: this.lastLink,
     };
   }
 
@@ -469,6 +542,8 @@ export class STMOrchestrator {
       safetyValidationPassed: true,
       confidenceScore,
       reasonChain,
+      ladderState: this.lastLadderState,
+      link: this.lastLink,
     };
   }
 
@@ -630,6 +705,32 @@ export class STMOrchestrator {
       resilience: this.resilienceHandler.getState(),
       emvCorridorActive: this.emvCorridorActive,
       lastValidTimestamp: this.lastValidTimestamp,
+      ladderState: this.lastLadderState,
+      link: this.lastLink,
     };
+  }
+
+  // ─── Resilience-ladder link controls (driven by the live loop) ──────────────
+  /** Edge liveness pulse; 30s of silence trips the LOCALLY_AUTONOMOUS rung. */
+  public recordHeartbeat(): void {
+    this.linkMonitor.heartbeat();
+  }
+
+  /** Broker (MQTT bus) connectivity — false drops to LOCALLY_AUTONOMOUS. */
+  public setBrokerConnected(connected: boolean): void {
+    this.linkMonitor.setBrokerConnected(connected);
+  }
+
+  /** Edge compute / hardware-validation fault — true forces TOTAL_FAILSAFE. */
+  public setEdgeFault(faulted: boolean): void {
+    this.linkMonitor.setEdgeFault(faulted);
+  }
+
+  public currentLadderState(): LadderState {
+    return this.lastLadderState;
+  }
+
+  public linkSnapshot(): LinkSnapshot {
+    return this.lastLink;
   }
 }

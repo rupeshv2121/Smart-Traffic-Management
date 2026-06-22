@@ -1,172 +1,214 @@
-import { useMemo } from "react";
-
 import { EmptyState } from "../components/EmptyState";
 import { StatCard } from "../components/StatCard";
 import { useStream } from "../context/StreamContext";
-import { CONGESTION_COLOR, CONGESTION_LABEL } from "../lib/congestion";
 import { CORRIDOR } from "../lib/mockData";
-import type { JunctionSummary } from "../types/snapshot";
+import type { CorridorLeg, LegState, TiState } from "../types/snapshot";
 
-const TOLERANCE = 0.15; // ±15% of expected green = compliant
+// TI status → visual treatment. All four backend tiStates render.
+const TI_META: Record<TiState, { label: string; pill: string; note: string; accent: "blue" | "green" | "danger" | "saffron" }> = {
+  STANDBY: { label: "STANDBY", pill: "info", note: "No active corridor — monitoring on standby", accent: "blue" },
+  MONITORING: { label: "MONITORING", pill: "ok", note: "Corridor active — route tracking nominal", accent: "green" },
+  DEVIATION: { label: "DEVIATION", pill: "warn", note: "Route re-planned — corridor deviated", accent: "danger" },
+  COMPLETED: { label: "COMPLETED", pill: "info", note: "Corridor cleared — vehicle arrived", accent: "saffron" },
+};
 
-interface StopEval {
-  code: string;
-  name: string;
-  expectedGreenS: number;
-  actualGreenS: number;
-  deviationPct: number;
-  compliant: boolean;
-  summary: JunctionSummary | null;
-  live: boolean;
-}
+// Leg state → pill class + label for the expected-vs-actual route view.
+const LEG_META: Record<LegState, { pill: string; label: string }> = {
+  CLEARED: { pill: "ok", label: "Cleared" },
+  RESERVED: { pill: "warn", label: "Reserved" },
+  PENDING: { pill: "info", label: "Pending" },
+  ABANDONED: { pill: "crit", label: "Abandoned" },
+};
 
 export function TIPage() {
-  const { city, latest, connection } = useStream();
+  const { latest, city, connection } = useStream();
 
-  const evals = useMemo<StopEval[]>(() => {
-    if (!city) return [];
-    return CORRIDOR.stops.map((stop) => {
-      const summary = city.junctions.find((j) => j.code === stop.code) ?? null;
-      const live = summary?.live ?? false;
-      // Live junction: use the real green duration. Peers: derive a plausible
-      // actual from congestion (busier ⇒ longer green held).
-      const actualGreenS = live
-        ? (latest?.decision.durationSeconds ?? stop.expectedGreenS)
-        : Math.round(stop.expectedGreenS * (0.8 + (summary?.congestionScore ?? 0.4) * 0.5));
-      const deviationPct = (actualGreenS - stop.expectedGreenS) / stop.expectedGreenS;
-      return {
-        code: stop.code,
-        name: stop.name,
-        expectedGreenS: stop.expectedGreenS,
-        actualGreenS,
-        deviationPct,
-        compliant: Math.abs(deviationPct) <= TOLERANCE,
-        summary,
-        live,
-      };
-    });
-  }, [city, latest]);
+  if (!latest) return <EmptyState connection={connection} />;
 
-  if (!city) return <EmptyState connection={connection} />;
+  const corridor = latest.corridor;
+  const tiState = corridor.tiState;
+  const meta = TI_META[tiState];
+  const active = corridor.active;
+  const compliancePct = active ? Math.round(active.compliance * 100) : 0;
+  const replans = active?.replans ?? 0;
 
-  const compliantCount = evals.filter((e) => e.compliant).length;
-  const complianceScore = evals.length ? Math.round((compliantCount / evals.length) * 100) : 0;
-  const hasDeviation = evals.some((e) => !e.compliant);
-  const corridorState = hasDeviation ? "DEVIATION" : "MONITORING";
+  // Static fallback label set when no live corridor is active.
+  const corridorName = active
+    ? `Corridor ${active.emvId}`
+    : CORRIDOR.name.replace(" Corridor", "");
 
   return (
     <>
       <div className="notice-bar mb-20">
         <span aria-hidden>🛡️</span>
         <span>
-          {CORRIDOR.name} — junction-by-junction expected-vs-actual green time.
-          The live junction uses real timing; corridor peers are simulated.
+          Trusted Intermediary — live Green-Corridor compliance. Route reservations
+          are tracked junction-by-junction against the granted plan; a re-plan is
+          flagged as a deviation.
         </span>
       </div>
 
       <div className="cols cols-4 mb-20">
-        <StatCard label="Corridor" value={CORRIDOR.name.replace(" Corridor", "")} foot={`${evals.length} junctions`} accent="blue" />
+        <StatCard
+          label="TI status"
+          value={meta.label}
+          foot={meta.note}
+          accent={meta.accent}
+        />
         <StatCard
           label="Compliance score"
-          value={`${complianceScore}%`}
-          foot={`${compliantCount}/${evals.length} within ±15%`}
-          accent={complianceScore >= 75 ? "green" : "danger"}
+          value={active ? `${compliancePct}%` : "—"}
+          foot={active ? `${active.legs.filter((l) => l.state === "CLEARED").length}/${active.legs.length} legs cleared` : "No active corridor"}
+          accent={active ? (compliancePct >= 75 ? "green" : "danger") : "blue"}
         />
         <StatCard
-          label="Corridor state"
-          value={corridorState}
-          foot={hasDeviation ? "Deviation detected" : "All stops nominal"}
-          accent={hasDeviation ? "danger" : "green"}
+          label="Re-plans"
+          value={replans}
+          foot={replans > 0 ? "Deviations detected" : "Route nominal"}
+          accent={replans > 0 ? "danger" : "green"}
         />
         <StatCard
-          label="Active corridors"
-          value={city.activeCorridors}
-          foot="Emergency green waves"
-          accent={city.activeCorridors > 0 ? "danger" : "blue"}
+          label="Reserved junctions"
+          value={corridor.reservedJunctions}
+          foot={`${corridor.conflicts.length} corridor(s) held`}
+          accent={corridor.conflicts.length > 0 ? "saffron" : "blue"}
         />
       </div>
 
-      <section className="card span-all">
-        <h2 className="card-title">Expected vs Actual Green Time</h2>
-        <div className="ti-strip">
-          {evals.map((e, i) => {
-            const maxS = Math.max(e.expectedGreenS, e.actualGreenS, 1);
-            return (
-              <div key={e.code} className="ti-stop">
-                <div className="ti-conn" aria-hidden>
-                  {i < evals.length - 1 && <span className="ti-line" />}
-                </div>
-                <div className="ti-bars">
-                  <span className="ti-bar exp" style={{ height: `${(e.expectedGreenS / maxS) * 100}%` }} title={`Expected ${e.expectedGreenS}s`} />
-                  <span
-                    className={`ti-bar act ${e.compliant ? "" : "dev"}`}
-                    style={{ height: `${(e.actualGreenS / maxS) * 100}%` }}
-                    title={`Actual ${e.actualGreenS}s`}
-                  />
-                </div>
-                <div className="ti-code">{e.code}</div>
-                {e.live && <span className="pill ok ti-live">Live</span>}
-              </div>
-            );
-          })}
-        </div>
-        <div className="map-legend">
-          <span className="legend-item"><span className="legend-dot" style={{ background: "var(--muted)" }} />Expected</span>
-          <span className="legend-item"><span className="legend-dot" style={{ background: "var(--india-green)" }} />Actual (compliant)</span>
-          <span className="legend-item"><span className="legend-dot" style={{ background: "var(--danger)" }} />Actual (deviation)</span>
-        </div>
-      </section>
+      {active ? (
+        <>
+          <div className="emv-state-bar mb-20">
+            <span className="esb-label">{corridorName}</span>
+            <span className={`pill ${meta.pill}`}>{meta.label}</span>
+            <span className="esb-note">
+              {active.priorityClass} · ETA {active.etaSeconds}s · → {active.targetPhaseId} · {active.route.join(" → ")}
+            </span>
+          </div>
 
-      <section className="card span-all" style={{ marginTop: 20 }}>
-        <h2 className="card-title">Junction Compliance</h2>
-        <div className="matrix-scroll">
-          <table className="matrix">
-            <thead>
-              <tr>
-                <th>Junction</th>
-                <th className="num">Expected</th>
-                <th className="num">Actual</th>
-                <th className="num">Deviation</th>
-                <th>Congestion</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {evals.map((e) => (
-                <tr key={e.code}>
-                  <td>
-                    <span className="jx-code">{e.code}</span>
-                    <span className="jx-name">{e.name}</span>
-                  </td>
-                  <td className="num mono">{e.expectedGreenS}s</td>
-                  <td className="num mono">{e.actualGreenS}s</td>
-                  <td className="num mono">
-                    {e.deviationPct >= 0 ? "+" : ""}
-                    {Math.round(e.deviationPct * 100)}%
-                  </td>
-                  <td>
-                    {e.summary ? (
-                      <span className="cong-cell">
-                        <span className="cong-dot" style={{ background: CONGESTION_COLOR[e.summary.congestionLevel] }} />
-                        {CONGESTION_LABEL[e.summary.congestionLevel]}
-                      </span>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td>
-                    {e.compliant ? (
-                      <span className="pill ok">Compliant</span>
-                    ) : (
-                      <span className="pill crit">Deviation</span>
-                    )}
-                  </td>
-                </tr>
+          <section className="card span-all">
+            <h2 className="card-title">Reserved Route · Expected vs Actual</h2>
+            <div className="ti-strip">
+              {active.legs.map((leg, i) => (
+                <RouteLeg key={`${leg.junctionId}-${i}`} leg={leg} isLast={i === active.legs.length - 1} current={i === active.currentIndex} />
               ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+            </div>
+            <div className="map-legend">
+              <span className="legend-item"><span className="legend-dot" style={{ background: "var(--ok)" }} />Cleared (passed)</span>
+              <span className="legend-item"><span className="legend-dot" style={{ background: "var(--warn)" }} />Reserved (held green)</span>
+              <span className="legend-item"><span className="legend-dot" style={{ background: "var(--info)" }} />Pending</span>
+              <span className="legend-item"><span className="legend-dot" style={{ background: "var(--danger)" }} />Abandoned (re-planned)</span>
+            </div>
+          </section>
+
+          <section className="card span-all" style={{ marginTop: 20 }}>
+            <h2 className="card-title">Junction Compliance</h2>
+            <div className="matrix-scroll">
+              <table className="matrix">
+                <thead>
+                  <tr>
+                    <th>Junction</th>
+                    <th className="num">Leg</th>
+                    <th>Reservation</th>
+                    <th>Progress</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {active.legs.map((leg, i) => {
+                    const summary = city?.junctions.find((j) => j.code === leg.code) ?? null;
+                    const lm = LEG_META[leg.state];
+                    return (
+                      <tr key={`${leg.junctionId}-${i}`}>
+                        <td>
+                          <span className="jx-code">{leg.code}</span>
+                          {summary && <span className="jx-name">{summary.name}</span>}
+                        </td>
+                        <td className="num mono">#{leg.index + 1}</td>
+                        <td><span className={`pill ${lm.pill}`}>{lm.label}</span></td>
+                        <td className="mono">
+                          {i < active.currentIndex ? "Passed" : i === active.currentIndex ? "At junction" : "Ahead"}
+                        </td>
+                        <td>
+                          {leg.state === "CLEARED" ? (
+                            <span className="pill ok">Compliant</span>
+                          ) : leg.state === "ABANDONED" ? (
+                            <span className="pill crit">Deviation</span>
+                          ) : (
+                            <span className="pill info">In window</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          {corridor.conflicts.length > 0 && (
+            <section className="card span-all" style={{ marginTop: 20 }}>
+              <h2 className="card-title">Held / Conflicting EMVs</h2>
+              <div className="matrix-scroll">
+                <table className="matrix">
+                  <thead>
+                    <tr>
+                      <th>Vehicle</th>
+                      <th>Priority</th>
+                      <th className="num">ETA</th>
+                      <th className="num">Re-plans</th>
+                      <th>Held reason</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {corridor.conflicts.map((c) => (
+                      <tr key={c.emvId}>
+                        <td><span className="jx-code">{c.emvId}</span></td>
+                        <td><span className={`pill ${c.priorityClass === "CRITICAL" ? "crit" : c.priorityClass === "HIGH" ? "warn" : "info"}`}>{c.priorityClass}</span></td>
+                        <td className="num mono">{c.etaSeconds}s</td>
+                        <td className="num mono">{c.replans}</td>
+                        <td className="muted">{c.heldReason ?? "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+        </>
+      ) : (
+        <section className="card span-all">
+          <h2 className="card-title">{meta.label === "COMPLETED" ? "Last Corridor · Completed" : "Standby"}</h2>
+          <div className="empty" style={{ padding: "28px 0" }}>
+            <div className="big">{tiState === "COMPLETED" ? "🏁 Corridor cleared" : "🛡️ No active corridor"}</div>
+            <p className="muted">
+              {tiState === "COMPLETED"
+                ? "The emergency vehicle has arrived and all reserved junctions have been released. The TI returns to standby on the next dispatch."
+                : `The Trusted Intermediary is monitoring on standby. When a Green Corridor is dispatched (e.g. ${CORRIDOR.name}), its reserved route appears here junction-by-junction with live compliance.`}
+            </p>
+          </div>
+        </section>
+      )}
     </>
+  );
+}
+
+function RouteLeg({ leg, isLast, current }: { leg: CorridorLeg; isLast: boolean; current: boolean }) {
+  const lm = LEG_META[leg.state];
+  const fill =
+    leg.state === "CLEARED" ? "var(--ok)"
+    : leg.state === "RESERVED" ? "var(--warn)"
+    : leg.state === "ABANDONED" ? "var(--danger)"
+    : "var(--info)";
+  // Bar height reflects reservation progress: cleared = full, reserved/pending = partial.
+  const height = leg.state === "CLEARED" ? 100 : leg.state === "ABANDONED" ? 30 : 60;
+  return (
+    <div className="ti-stop">
+      <div className="ti-conn" aria-hidden>{!isLast && <span className="ti-line" />}</div>
+      <div className="ti-bars">
+        <span className="ti-bar" style={{ height: `${height}%`, background: fill, width: 26 }} title={`${leg.code} · ${lm.label}`} />
+      </div>
+      <div className="ti-code">{leg.code}</div>
+      {current && <span className="pill ok ti-live">Here</span>}
+    </div>
   );
 }
