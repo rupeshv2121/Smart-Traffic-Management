@@ -242,7 +242,28 @@ a:hover {
   padding: 64px 28px 40px;
 }
 .hero {
+  position: relative;
   text-align: center;
+  padding: 8px 0 40px;
+}
+/* Delhi landmarks silhouette behind the hero copy */
+.hero-skyline {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: min(1180px, 100%);
+  height: 220px;
+  color: var(--navy);
+  opacity: 0.07;
+  pointer-events: none;
+  z-index: 0;
+  -webkit-mask-image: linear-gradient(to top, #000 35%, transparent 100%);
+  mask-image: linear-gradient(to top, #000 35%, transparent 100%);
+}
+.hero-content {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -285,7 +306,6 @@ a:hover {
 }
 
 .feature-grid {
-  margin-top: 72px;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 18px;
@@ -349,6 +369,256 @@ a:hover {
   font-size: 14px;
   color: var(--muted);
   margin-top: 6px;
+}
+
+/* ── Ministry / programme strip ───────────────────── */
+.ministries-strip {
+  margin-top: 56px;
+  padding: 22px 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+.ministries-cap {
+  text-align: center;
+  font-family: "Mukta", sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 16px;
+}
+.ministries-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 14px 26px;
+}
+.ministry {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  max-width: 280px;
+}
+.ministry-mark {
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid var(--border);
+}
+.ministry-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+.ministry-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--navy);
+}
+.ministry-hi {
+  font-size: 12px;
+  color: var(--ink-2);
+}
+.ministry-tag {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--saffron);
+  font-weight: 700;
+  margin-top: 2px;
+}
+
+/* ── Generic landing section ──────────────────────── */
+.section {
+  margin-top: 84px;
+}
+.section-head {
+  max-width: 760px;
+  margin: 0 auto 36px;
+  text-align: center;
+}
+.section-eyebrow {
+  font-family: "Mukta", sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-size: 13px;
+  color: var(--saffron);
+  margin-bottom: 10px;
+}
+.section-title {
+  font-size: clamp(26px, 3.4vw, 38px);
+  line-height: 1.12;
+  color: var(--navy);
+}
+.section-lede {
+  font-size: 18px;
+  color: var(--ink-2);
+  margin: 14px 0 0;
+}
+
+/* ── Problem grid ─────────────────────────────────── */
+.problem-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+}
+@media (max-width: 960px) {
+  .problem-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 560px) {
+  .problem-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.problem-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-top: 4px solid var(--saffron);
+  border-radius: var(--radius);
+  padding: 24px 20px;
+  box-shadow: var(--shadow-sm);
+}
+.problem-figure {
+  font-family: "Mukta", sans-serif;
+  font-weight: 800;
+  font-size: 32px;
+  color: var(--danger);
+  line-height: 1;
+}
+.problem-label {
+  margin-top: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.problem-note {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* ── Solution pipeline ────────────────────────────── */
+.pipeline {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+  margin-bottom: 28px;
+}
+@media (max-width: 980px) {
+  .pipeline {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 560px) {
+  .pipeline {
+    grid-template-columns: 1fr;
+  }
+}
+.pipe-step {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 16px;
+  box-shadow: var(--shadow-sm);
+}
+.pipe-num {
+  font-family: "Mukta", sans-serif;
+  font-weight: 800;
+  font-size: 18px;
+  color: #fff;
+  background: var(--chakra-blue);
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  margin-bottom: 12px;
+}
+.pipe-title {
+  font-size: 16px;
+  color: var(--navy);
+  margin-bottom: 6px;
+}
+.pipe-body {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--ink-2);
+}
+.pipe-tag {
+  display: inline-block;
+  margin-top: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--india-green);
+}
+.pipe-arrow {
+  position: absolute;
+  right: -11px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 20px;
+  color: var(--border-strong);
+  z-index: 2;
+}
+@media (max-width: 980px) {
+  .pipe-arrow {
+    display: none;
+  }
+}
+
+/* ── Approach (trust model) grid ──────────────────── */
+.approach-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+}
+@media (max-width: 960px) {
+  .approach-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 560px) {
+  .approach-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.approach-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 22px 20px;
+}
+.approach-icon {
+  font-size: 26px;
+  display: block;
+  margin-bottom: 10px;
+}
+.approach-card h3 {
+  font-size: 16px;
+  color: var(--navy);
+  margin-bottom: 6px;
+}
+.approach-card p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--ink-2);
 }
 
 /* ── Footer ───────────────────────────────────────── */
