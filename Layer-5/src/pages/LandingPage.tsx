@@ -2,19 +2,29 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 
 import indiaGate from "../assets/IndiaGate.jpg";
+import rashtrapatiBhavan from "../assets/Rashtrapati_Bhavan.jpg";
+import redFort from "../assets/Red_Fort.jpg";
+import traffic1 from "../assets/Traffic-1.jpg";
+import traffic2 from "../assets/Traffic-2.jpg";
+import traffic3 from "../assets/Traffic-3.jpg.jpeg";
 import { Modal } from "../components/Modal";
 import { Reveal } from "../components/Reveal";
 import { DelhiSkyline } from "../components/gov/DelhiSkyline";
-import { AshokaChakra } from "../components/gov/Emblem";
+import { EmblemCrest } from "../components/gov/Emblem";
 import { FLOW_GLYPHS } from "../components/gov/FlowGlyphs";
 import { GovFooter } from "../components/gov/GovFooter";
 import { GovHeader } from "../components/gov/GovHeader";
 import { MinistryCrest } from "../components/gov/MinistryCrest";
+import { PhotoBackdrop } from "../components/gov/PhotoBackdrop";
 import { SectionDivider } from "../components/gov/SectionDivider";
 import { STAT_GLYPHS } from "../components/gov/StatGlyphs";
 import { UtilityBar } from "../components/gov/UtilityBar";
 import { useLang } from "../context/LangContext";
 import { LANDING_CONTENT } from "../i18n/landingContent";
+
+// Delhi landmarks for the hero crossfade; traffic scenes behind the problem.
+const HERO_PHOTOS = [indiaGate, rashtrapatiBhavan, redFort];
+const TRAFFIC_PHOTOS = [traffic1, traffic2, traffic3];
 
 const MINISTRIES = [
   { name: "Ministry of Road Transport & Highways", hindi: "सड़क परिवहन और राजमार्ग मंत्रालय", tag: "MoRTH" },
@@ -38,16 +48,12 @@ export function LandingPage() {
 
       <main className="landing-main" id="main">
         <section className="hero">
-          {/* India Gate — Delhi landmark, faint behind the hero copy */}
-          <div
-            className="hero-bg"
-            style={{ backgroundImage: `url(${indiaGate})` }}
-            aria-hidden
-          />
+          {/* Delhi landmarks — slow crossfade, faint behind the hero copy */}
+          <PhotoBackdrop className="hero-bg" images={HERO_PHOTOS} interval={7} />
           <DelhiSkyline className="hero-skyline" />
           <div className="hero-content">
             <div className="emblem-xl">
-              <AshokaChakra size={84} />
+              <EmblemCrest size={112} />
             </div>
             <div className="eyebrow">{c.hero.eyebrow}</div>
 
@@ -117,6 +123,8 @@ export function LandingPage() {
 
         {/* The problem */}
         <section id="problem" className="section section-problem">
+          {/* Real Delhi traffic scenes, faint behind the problem cards */}
+          <PhotoBackdrop className="problem-bg" images={TRAFFIC_PHOTOS} interval={8} />
           <Reveal className="section-head" variant="up">
             <div className="section-eyebrow">
               <span className="eyebrow-tick" aria-hidden />

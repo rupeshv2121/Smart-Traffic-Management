@@ -337,7 +337,7 @@ a:hover {
   max-width: 1180px;
   width: 100%;
   margin: 0 auto;
-  padding: 64px 28px 40px;
+  padding: 30px 28px 40px;
 }
 .hero {
   position: relative;
@@ -1034,7 +1034,11 @@ a:hover {
   padding: 52px 30px 42px;
   border-radius: 24px;
   background:
-    radial-gradient(900px 220px at 50% 0%, #eef3fc 0, rgba(238, 243, 252, 0) 72%),
+    radial-gradient(
+      900px 220px at 50% 0%,
+      #eef3fc 0,
+      rgba(238, 243, 252, 0) 72%
+    ),
     linear-gradient(180deg, var(--surface-2), var(--surface));
   border: 1px solid var(--border);
   box-shadow: var(--shadow-sm);
@@ -1050,7 +1054,12 @@ a:hover {
     rgba(6, 3, 141, 0.04) 0 2px,
     transparent 2px 64px
   );
-  -webkit-mask-image: linear-gradient(180deg, transparent, #000 60%, transparent);
+  -webkit-mask-image: linear-gradient(
+    180deg,
+    transparent,
+    #000 60%,
+    transparent
+  );
   mask-image: linear-gradient(180deg, transparent, #000 60%, transparent);
   pointer-events: none;
 }
@@ -1164,7 +1173,11 @@ a:hover {
   display: grid;
   place-items: center;
   color: #fff;
-  background: radial-gradient(circle at 32% 28%, #2a3da8, var(--chakra-blue) 72%);
+  background: radial-gradient(
+    circle at 32% 28%,
+    #2a3da8,
+    var(--chakra-blue) 72%
+  );
   box-shadow:
     0 0 0 6px var(--surface),
     0 0 0 7px var(--border),
@@ -1201,7 +1214,11 @@ a:hover {
     0 16px 32px rgba(6, 3, 141, 0.42);
 }
 .flow-node.is-active .flow-orb {
-  background: radial-gradient(circle at 32% 28%, #1aa64b, var(--india-green) 72%);
+  background: radial-gradient(
+    circle at 32% 28%,
+    #1aa64b,
+    var(--india-green) 72%
+  );
   box-shadow:
     0 0 0 6px var(--surface),
     0 0 0 7px var(--india-green),
@@ -2317,4 +2334,97 @@ a:hover {
   font-weight: 700;
   font-size: 14px;
   color: var(--muted);
+}
+
+/* ── Photo backdrops (slow crossfade slideshows) ──── */
+.photo-backdrop {
+  overflow: hidden;
+}
+.pb-layer {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center 30%;
+  opacity: 0;
+  animation-name: pbFade;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  will-change: opacity;
+}
+@keyframes pbFade {
+  0% {
+    opacity: 0;
+  }
+  4% {
+    opacity: 1;
+  }
+  30% {
+    opacity: 1;
+  }
+  34% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pb-layer {
+    animation: none;
+    opacity: 0;
+  }
+  .pb-layer:first-child {
+    opacity: 1;
+  }
+}
+
+/* State Emblem (Ashok Satambh) in the hero */
+.emblem-img {
+  height: 180px;
+  width: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 16px rgba(16, 35, 60, 0.24));
+}
+
+/* Real traffic scenes faded behind the Problem section */
+.section-problem {
+  position: relative;
+}
+.problem-bg {
+  position: absolute;
+  left: 50%;
+  top: -36px;
+  transform: translateX(-50%);
+  width: min(1320px, 116%);
+  height: calc(100% + 72px);
+  opacity: 0.1;
+  filter: saturate(0.92);
+  pointer-events: none;
+  z-index: 0;
+  border-radius: 24px;
+  -webkit-mask-image: radial-gradient(
+    120% 100% at 50% 35%,
+    #000 45%,
+    transparent 86%
+  );
+  mask-image: radial-gradient(120% 100% at 50% 35%, #000 45%, transparent 86%);
+}
+.section-problem > .section-head,
+.section-problem > .problem-grid {
+  position: relative;
+  z-index: 1;
+}
+
+/* Hero emblem crest */
+.emblem-xl .emblem-img,
+.emblem-xl svg {
+  filter: drop-shadow(0 8px 18px rgba(16, 35, 60, 0.18));
+}
+
+/* State emblem image in the masthead */
+.gov-emblem-img {
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
 }
