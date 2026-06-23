@@ -2,10 +2,11 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { CityMap } from "../components/command/CityMap";
-import { Ambulance, OctagonAlert } from "../components/icons/AppIcons";
 import { GovFooter } from "../components/gov/GovFooter";
 import { GovHeader } from "../components/gov/GovHeader";
 import { UtilityBar } from "../components/gov/UtilityBar";
+import { ConnectionChip } from "../components/ConnectionChip";
+import { Ambulance, OctagonAlert } from "../components/icons/AppIcons";
 import { useLang } from "../context/LangContext";
 import { useStream } from "../context/StreamContext";
 import { CONGESTION_COLOR, CONGESTION_LABEL, CONGESTION_LABEL_HI } from "../lib/congestion";
@@ -23,7 +24,7 @@ const COPY = {
     from: "From",
     to: "To",
     advisory: "Advisory",
-    operator: "Operator sign-in →",
+    operator: "Operator sign up",
     vehicles: "vehicles",
   },
   hi: {
@@ -44,7 +45,7 @@ const COPY = {
 } as const;
 
 export function PublicLivePage() {
-  const { city } = useStream();
+  const { city, connection } = useStream();
   const { lang } = useLang();
   const t = COPY[lang];
   const label = lang === "hi" ? CONGESTION_LABEL_HI : CONGESTION_LABEL;
@@ -87,15 +88,18 @@ export function PublicLivePage() {
       <main className="landing-main">
         <div className="page" style={{ maxWidth: 1180, margin: "0 auto" }}>
           <div className="mb-20">
-            <h1 style={{ color: "var(--navy)", fontSize: 30 }}>{t.title}</h1>
-            <p className="muted">{t.sub}</p>
+            <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+              <h1 style={{ color: "var(--navy)", fontSize: 30, margin: 0 }}>{t.title}</h1>
+              <ConnectionChip state={connection} />
+            </div>
+            <p className="muted" style={{ marginTop: 6 }}>{t.sub}</p>
           </div>
 
           <div className="cols cols-2 mb-20">
             <section className="card">
               <h2 className="card-title">{t.map}</h2>
               {city ? (
-                <CityMap junctions={junctions} selectedId={null} onSelect={() => {}} />
+                <CityMap junctions={junctions} selectedId={null} onSelect={() => { }} />
               ) : (
                 <p className="feed-empty">Connecting to live feed…</p>
               )}

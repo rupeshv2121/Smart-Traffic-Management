@@ -76,6 +76,9 @@ export function LandingPage() {
               <a className="btn btn-ghost" href="#problem">
                 {c.hero.ctaSecondary}
               </a>
+              <Link to="/live-traffic" className="btn btn-ghost">
+                {lang === "hi" ? "लाइव ट्रैफ़िक देखें" : "View Live Traffic"}
+              </Link>
             </div>
 
             <div className="quicklinks">

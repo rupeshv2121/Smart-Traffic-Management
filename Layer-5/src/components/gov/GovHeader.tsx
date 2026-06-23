@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { Link } from "react-router-dom";
 import ashokSatambh from "../../assets/Ashok Satambh.png";
 
 // National-government masthead: tricolour strip + emblem + bilingual titles.
@@ -9,7 +10,7 @@ export function GovHeader({ actions }: { actions?: ReactNode }) {
     <header className="centered-content">
       <div className="tricolour" />
       <div className="gov-header">
-        <div className="gov-header-inner ">
+        <Link to="/" className="gov-header-inner text-decoration-none ">
           <img
             className="gov-emblem-img"
             src={ashokSatambh}
@@ -24,7 +25,7 @@ export function GovHeader({ actions }: { actions?: ReactNode }) {
           </div>
           <div className="gov-header-spacer" />
           {actions && <div className="gov-header-actions">{actions}</div>}
-        </div>
+        </Link>
       </div>
     </header>
   );
