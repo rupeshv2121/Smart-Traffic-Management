@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { AuditTrail } from "../components/AuditTrail";
 import { StatCard } from "../components/StatCard";
+import { RoleIcon } from "../components/icons/AppIcons";
 import { ROLE_META } from "../types/auth";
 import {
   getAnalytics,
@@ -149,7 +150,7 @@ export function AdministrationPage() {
                     <span className="jx-name">{u.name}</span>
                   </td>
                   <td>
-                    {ROLE_META[u.role].icon} {ROLE_META[u.role].label}
+                    <RoleIcon role={u.role} size={16} className="inline-ic" /> {ROLE_META[u.role].label}
                   </td>
                   <td>{u.zone}</td>
                   <td className="nowrap">{new Date(u.lastSeen).toLocaleString("en-IN")}</td>

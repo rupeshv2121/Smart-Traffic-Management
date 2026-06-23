@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { EmergencyBanner } from "../components/EmergencyBanner";
 import { EmptyState } from "../components/EmptyState";
+import { AlertTriangle } from "../components/icons/AppIcons";
 import { JunctionDiagram } from "../components/JunctionDiagram";
 import { StatCard } from "../components/StatCard";
 import { useStream } from "../context/StreamContext";
@@ -103,7 +104,7 @@ export function EmergencyPage() {
 
       {error && (
         <div className="notice-bar error mb-20">
-          <span aria-hidden>⚠️</span>
+          <span aria-hidden><AlertTriangle size={18} /></span>
           <span>{error}</span>
         </div>
       )}

@@ -1648,7 +1648,10 @@ a:hover {
   white-space: nowrap;
 }
 .navlink .nicon {
-  font-size: 19px;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  color: currentColor;
 }
 .navlink:hover {
   background: var(--surface-2);
@@ -2206,6 +2209,9 @@ a:hover {
   border-radius: var(--radius);
 }
 .empty .big {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 22px;
   font-weight: 700;
   color: var(--navy);
@@ -2519,8 +2525,6 @@ a:hover {
   outline-offset: 2px;
 }
 .role-ic {
-  font-size: 26px;
-  line-height: 1;
   width: 46px;
   height: 46px;
   flex-shrink: 0;
@@ -2528,6 +2532,7 @@ a:hover {
   place-items: center;
   background: #eef4ff;
   border-radius: 10px;
+  color: var(--navy);
 }
 .role-body {
   display: flex;
@@ -2778,7 +2783,10 @@ a:hover {
   background: #e9f1fd;
 }
 .inc-ic {
-  font-size: 18px;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  color: var(--ink-2);
 }
 .inc-msg {
   font-weight: 700;
@@ -2867,6 +2875,16 @@ a:hover {
   padding: 14px 18px;
   font-size: 14.5px;
   color: var(--ink-2);
+}
+.notice-bar > svg:first-child,
+.notice-bar > span:first-child svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--info);
+}
+.notice-bar.error > svg:first-child,
+.notice-bar.error > span:first-child svg {
+  color: var(--danger);
 }
 .notice-bar.error {
   background: #fcebeb;
@@ -3329,7 +3347,6 @@ a:hover {
   margin-bottom: 10px;
 }
 .su-ic {
-  font-size: 18px;
   width: 36px;
   height: 36px;
   flex-shrink: 0;
@@ -3337,6 +3354,12 @@ a:hover {
   place-items: center;
   background: #eef4ff;
   border-radius: 9px;
+  color: var(--navy);
+}
+.inline-ic {
+  display: inline-block;
+  vertical-align: -3px;
+  margin-right: 4px;
 }
 .su-text {
   min-width: 0;

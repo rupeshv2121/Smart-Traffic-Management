@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { CityMap } from "../components/command/CityMap";
+import { Ambulance, OctagonAlert } from "../components/icons/AppIcons";
 import { GovFooter } from "../components/gov/GovFooter";
 import { GovHeader } from "../components/gov/GovHeader";
 import { UtilityBar } from "../components/gov/UtilityBar";
@@ -118,7 +119,7 @@ export function PublicLivePage() {
                     {publicAlerts.map((a) => (
                       <li key={a.id} className={`incident sev-${a.severity}`}>
                         <span className="inc-ic" aria-hidden>
-                          {a.kind === "EMERGENCY" ? "🚑" : "🛑"}
+                          {a.kind === "EMERGENCY" ? <Ambulance size={18} /> : <OctagonAlert size={18} />}
                         </span>
                         <div className="inc-body">
                           <div className="inc-msg">{a.message}</div>

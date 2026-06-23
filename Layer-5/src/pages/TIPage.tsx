@@ -1,5 +1,6 @@
 import { EmptyState } from "../components/EmptyState";
 import { StatCard } from "../components/StatCard";
+import { Flag, Shield } from "../components/icons/AppIcons";
 import { useStream } from "../context/StreamContext";
 import { CORRIDOR } from "../lib/mockData";
 import type { CorridorLeg, LegState, TiState } from "../types/snapshot";
@@ -40,7 +41,7 @@ export function TIPage() {
   return (
     <>
       <div className="notice-bar mb-20">
-        <span aria-hidden>🛡️</span>
+        <span aria-hidden><Shield size={18} /></span>
         <span>
           Trusted Intermediary — live Green-Corridor compliance. Route reservations
           are tracked junction-by-junction against the granted plan; a re-plan is
@@ -179,7 +180,19 @@ export function TIPage() {
         <section className="card span-all">
           <h2 className="card-title">{meta.label === "COMPLETED" ? "Last Corridor · Completed" : "Standby"}</h2>
           <div className="empty" style={{ padding: "28px 0" }}>
-            <div className="big">{tiState === "COMPLETED" ? "🏁 Corridor cleared" : "🛡️ No active corridor"}</div>
+            <div className="big">
+              {tiState === "COMPLETED" ? (
+                <>
+                  <Flag size={22} />
+                  Corridor cleared
+                </>
+              ) : (
+                <>
+                  <Shield size={22} />
+                  No active corridor
+                </>
+              )}
+            </div>
             <p className="muted">
               {tiState === "COMPLETED"
                 ? "The emergency vehicle has arrived and all reserved junctions have been released. The TI returns to standby on the next dispatch."

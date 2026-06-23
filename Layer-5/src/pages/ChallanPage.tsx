@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { StatCard } from "../components/StatCard";
+import { AlertTriangle, Receipt } from "../components/icons/AppIcons";
 import {
   getChallans,
   issueChallan,
@@ -68,7 +69,7 @@ export function ChallanPage() {
   return (
     <>
       <div className={`notice-bar mb-20 ${offline ? "error" : ""}`}>
-        <span aria-hidden>🧾</span>
+        <span aria-hidden><Receipt size={18} /></span>
         <span>
           {offline
             ? "Gateway offline — showing bundled demo violations (read-only)."
@@ -77,7 +78,7 @@ export function ChallanPage() {
       </div>
       {error && (
         <div className="notice-bar error mb-20">
-          <span aria-hidden>⚠️</span>
+          <span aria-hidden><AlertTriangle size={18} /></span>
           <span>{error}</span>
         </div>
       )}

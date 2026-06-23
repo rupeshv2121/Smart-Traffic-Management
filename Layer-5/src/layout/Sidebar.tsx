@@ -1,6 +1,7 @@
 import { Link, NavLink, useNavigate } from "react-router-dom";
 
 import { AshokaChakra } from "../components/gov/Emblem";
+import { ModuleIcon, RoleIcon } from "../components/icons/AppIcons";
 import { useAuth } from "../context/AuthContext";
 import { useLang } from "../context/LangContext";
 import { ROLE_META, modulesForRole } from "../types/auth";
@@ -33,7 +34,9 @@ export function Sidebar() {
           to={n.path}
           className={({ isActive }) => `navlink ${isActive ? "active" : ""}`}
         >
-          <span className="nicon">{n.icon}</span>
+          <span className="nicon">
+            <ModuleIcon moduleKey={n.key} size={19} />
+          </span>
           {lang === "hi" ? n.labelHi : n.label}
         </NavLink>
       ))}
@@ -42,7 +45,7 @@ export function Sidebar() {
         <div className="sidebar-user">
           <div className="su-row">
             <span className="su-ic" aria-hidden>
-              {ROLE_META[user.role].icon}
+              <RoleIcon role={user.role} size={18} />
             </span>
             <div className="su-text">
               <div className="su-name">{user.name}</div>

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 
 import { AuditTrail } from "../components/AuditTrail";
+import { AlertTriangle, Info } from "../components/icons/AppIcons";
 import { useStream } from "../context/StreamContext";
 import {
   clearOverride,
@@ -78,7 +79,7 @@ export function SignalControlPage() {
   return (
     <>
       <div className="notice-bar mb-20">
-        <span aria-hidden>ℹ️</span>
+        <span aria-hidden><Info size={18} /></span>
         <span>
           Manual overrides hold a single green phase with enforced clearance intervals.
           They expire automatically and are <strong>always superseded by an active
@@ -88,7 +89,7 @@ export function SignalControlPage() {
 
       {error && (
         <div className="notice-bar error mb-20">
-          <span aria-hidden>⚠️</span>
+          <span aria-hidden><AlertTriangle size={18} /></span>
           <span>{error}</span>
         </div>
       )}

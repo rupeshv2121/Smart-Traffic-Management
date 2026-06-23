@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useNavigate, useLocation, Navigate, Link } from "react-router-dom";
 
 import { EmblemCrest } from "../components/gov/Emblem";
+import { AlertTriangle, RoleIcon } from "../components/icons/AppIcons";
 import { useAuth } from "../context/AuthContext";
 import { useLang } from "../context/LangContext";
 import { ALL_ROLES, ROLE_META, firstAllowedPath, type Role } from "../types/auth";
@@ -85,7 +86,7 @@ export function LoginPage() {
 
         {error && (
           <div className="notice-bar error" style={{ marginBottom: 16 }}>
-            <span aria-hidden>⚠️</span>
+            <span aria-hidden><AlertTriangle size={18} /></span>
             <span>{error}</span>
           </div>
         )}
@@ -154,7 +155,7 @@ export function LoginPage() {
                 disabled={busy}
                 onClick={() => void run(() => login(role))}
               >
-                <span className="role-ic" aria-hidden>{m.icon}</span>
+                <span className="role-ic" aria-hidden><RoleIcon role={role} size={22} /></span>
                 <span className="role-body">
                   <span className="role-name">
                     {m.label}

@@ -1,11 +1,5 @@
 import type { CityIncident } from "../../types/snapshot";
-
-const KIND_ICON: Record<CityIncident["kind"], string> = {
-  EMERGENCY: "🚑",
-  GRIDLOCK: "🛑",
-  SAFETY: "⚠️",
-  DEGRADED: "📡",
-};
+import { IncidentKindIcon } from "../icons/AppIcons";
 
 export function IncidentFeed({ incidents }: { incidents: CityIncident[] }) {
   return (
@@ -20,7 +14,7 @@ export function IncidentFeed({ incidents }: { incidents: CityIncident[] }) {
           {incidents.map((inc) => (
             <li key={inc.id} className={`incident sev-${inc.severity}`}>
               <span className="inc-ic" aria-hidden>
-                {KIND_ICON[inc.kind]}
+                <IncidentKindIcon kind={inc.kind} size={18} />
               </span>
               <div className="inc-body">
                 <div className="inc-msg">{inc.message}</div>
