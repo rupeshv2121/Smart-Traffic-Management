@@ -237,7 +237,7 @@ export function LandingPage() {
                     onClick={() => setActiveStep((s) => (s != null ? s - 1 : s))}
                     disabled={activeStep === 0}
                   >
-                    ← {lang === "hi" ? "पिछला" : "Previous"}
+                    {lang === "hi" ? "पिछला" : "Previous"}
                   </button>
                   <span className="step-modal-count">
                     {activeStep + 1} / {steps.length}

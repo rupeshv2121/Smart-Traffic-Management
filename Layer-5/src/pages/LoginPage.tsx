@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { useNavigate, useLocation, Navigate, Link } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 
 import { EmblemCrest } from "../components/gov/Emblem";
 import { AlertTriangle, RoleIcon } from "../components/icons/AppIcons";
@@ -20,7 +20,7 @@ const COPY = {
     ssoBtn: "Continue with SSO",
     quick: "Quick demo sign-in",
     hint: "Default demo accounts: admin / operator / inspector / dispatcher · password stm@1234",
-    back: "← Back to public portal",
+    back: "Back to Home",
     bad: "Sign-in failed. Check your credentials or the gateway connection.",
   },
   hi: {
@@ -35,7 +35,7 @@ const COPY = {
     ssoBtn: "एसएसओ से जारी रखें",
     quick: "त्वरित डेमो साइन-इन",
     hint: "डिफ़ॉल्ट डेमो खाते: admin / operator / inspector / dispatcher · पासवर्ड stm@1234",
-    back: "← सार्वजनिक पोर्टल पर वापस",
+    back: "होम",
     bad: "साइन-इन विफल। क्रेडेंशियल या गेटवे कनेक्शन जाँचें।",
   },
 } as const;
@@ -114,7 +114,7 @@ export function LoginPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
-          <button type="submit" className="btn btn-primary" disabled={busy || !username || !password}>
+          <button type="submit" className="btn btn-primary sign-in-btn" disabled={busy || !username || !password}>
             {t.signIn}
           </button>
         </form>
@@ -163,7 +163,6 @@ export function LoginPage() {
                   </span>
                   <span className="role-blurb">{lang === "hi" ? m.blurbHi : m.blurb}</span>
                 </span>
-                <span className="role-go" aria-hidden>→</span>
               </button>
             );
           })}

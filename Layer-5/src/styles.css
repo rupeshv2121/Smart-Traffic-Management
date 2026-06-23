@@ -2922,6 +2922,23 @@ a:hover {
   margin-top: 12px;
   font-size: 14px;
   font-weight: 600;
+  background-color: #0b2447;
+  color: white;
+  padding: 12px;
+  border-radius: 10px;
+  text-decoration: none;
+}
+
+.login-back:hover {
+  background-color: #022144;
+  text-decoration: none;
+}
+
+.sign-in-btn {
+  width: 100%;
+  text-align: center !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
 /* ============================================================
