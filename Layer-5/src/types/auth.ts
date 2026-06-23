@@ -73,7 +73,8 @@ export type ModuleKey =
   | "ti"
   | "analytics"
   | "admin"
-  | "health";
+  | "health"
+  | "simulation";
 
 export interface ModuleDef {
   key: ModuleKey;
@@ -111,6 +112,7 @@ export const MODULES: ModuleDef[] = [
   mod("analytics", "analytics", "Analytics", "विश्लेषण", ALL_ROLES, true),
   mod("admin", "admin", "Administration", "प्रशासन", ["ADMIN"], true),
   mod("health", "health", "System Health", "सिस्टम स्थिति", ALL_ROLES, true),
+  mod("simulation", "simulation", "3D Simulation", "3D सिमुलेशन", ALL_ROLES, true),
 ];
 
 export function moduleBySeg(seg: string): ModuleDef | undefined {

@@ -2,6 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   AlertTriangle,
   Ambulance,
+  Boxes,
   BarChart3,
   Flag,
   Info,
@@ -30,6 +31,7 @@ const MODULE_ICON: Record<ModuleKey, LucideIcon> = {
   analytics: BarChart3,
   admin: Settings,
   health: Stethoscope,
+  simulation: Boxes,
 };
 
 const ROLE_ICON: Record<Role, LucideIcon> = {

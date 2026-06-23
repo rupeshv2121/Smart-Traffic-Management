@@ -1790,6 +1790,7 @@ a:hover {
   position: sticky;
   top: 0;
   height: 100vh;
+  overflow-y: auto;
 }
 
 @media (max-width: 880px) {
@@ -3955,4 +3956,182 @@ a:hover {
   height: 40px;
   margin-top: 4px;
   border-bottom: 1px dashed var(--border);
+}
+
+/* ------------------------------------------------------------------ */
+/* Simulation Page                                                    */
+/* ------------------------------------------------------------------ */
+
+.sim-page {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 20px;
+  height: calc(100vh - 120px);
+  min-height: 600px;
+}
+
+.sim-viewport {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.sim-iframe {
+  flex: 1;
+  width: 100%;
+  border: none;
+  background: #000;
+}
+
+.sim-overlay-status {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 10;
+}
+
+.sim-overlay-emergency {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  width: 80%;
+  max-width: 600px;
+}
+
+.sim-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sim-panel-title {
+  font-family: "Mukta", sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+}
+
+.sim-signals {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sim-signal-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+
+.sim-signal-label {
+  font-weight: 600;
+  width: 60px;
+}
+
+.sim-signal-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  box-shadow: 0 0 8px currentColor;
+}
+
+.sim-signal-red { color: #ef4444; background: #ef4444; }
+.sim-signal-yellow { color: #f59e0b; background: #f59e0b; }
+.sim-signal-green { color: #10b981; background: #10b981; }
+
+.sim-signal-text {
+  font-family: "Fira Code", monospace;
+  font-size: 12px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.sim-emv-info, .sim-junction-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--surface-2);
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+
+.sim-no-emv {
+  color: var(--text-muted);
+  font-size: 14px;
+  padding: 12px;
+  text-align: center;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  border: 1px dashed var(--border);
+}
+
+.sim-dispatch-btns {
+  display: flex;
+  gap: 8px;
+}
+
+.sim-dispatch-btns button {
+  flex: 1;
+}
+
+.sim-dispatch-err {
+  color: var(--danger);
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+.sim-lane-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.sim-lane-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sim-lane-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.sim-lane-stat {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+}
+
+.sim-stats-mini {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }

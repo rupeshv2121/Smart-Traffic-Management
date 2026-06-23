@@ -14,6 +14,7 @@ import { LiveOpsPage } from "./pages/LiveOpsPage";
 import { LoginPage } from "./pages/LoginPage";
 import { PublicLivePage } from "./pages/PublicLivePage";
 import { SignalControlPage } from "./pages/SignalControlPage";
+import { SimulationPage } from "./pages/SimulationPage";
 import { SystemHealthPage } from "./pages/SystemHealthPage";
 import { TIPage } from "./pages/TIPage";
 import { firstAllowedPath } from "./types/auth";
@@ -117,6 +118,14 @@ export function App() {
           element={
             <RequireModule moduleKey="health">
               <SystemHealthPage />
+            </RequireModule>
+          }
+        />
+        <Route
+          path="simulation"
+          element={
+            <RequireModule moduleKey="simulation">
+              <SimulationPage />
             </RequireModule>
           }
         />

@@ -4,3 +4,8 @@ export const GATEWAY_URL =
   import.meta.env.VITE_GATEWAY_URL ?? "http://localhost:8200";
 
 export const EVENTS_URL = `${GATEWAY_URL}/events`;
+
+// URL of the green-corridor-sim (3D traffic simulation). Override with
+// VITE_SIM_URL when it runs on a different host/port.
+export const SIM_URL =
+  import.meta.env.VITE_SIM_URL ?? "http://localhost:8081";

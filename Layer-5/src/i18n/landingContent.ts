@@ -31,12 +31,12 @@ export interface LandingContent {
     title: string;
     // lede: string;
     steps: { step: string; title: string; body: string; tag: string }[];
-    cards: { icon: string; title: string; body: string }[];
+    cards: { title: string; body: string }[];
   };
   features: {
     eyebrow: string;
     title: string;
-    cards: { icon: string; title: string; body: string }[];
+    cards: {title: string; body: string }[];
   };
   footer: {
     about: string;
@@ -170,22 +170,18 @@ const EN: LandingContent = {
     ],
     cards: [
       {
-        icon: "🔐",
         title: "Verify once, trust per-junction",
         body: "At dispatch the vehicle gets a signed, time-bound, route-scoped, revocable token (Ed25519).",
       },
       {
-        icon: "🛰️",
         title: "GPS-matched route gate",
         body: "Each junction checks the token signature and that the live GPS track matches its claimed route.",
       },
       {
-        icon: "🎥",
         title: "Camera corroboration",
         body: "ANPR only confirms the vehicle has passed — it never opens the gate on its own.",
       },
       {
-        icon: "🧩",
         title: "Two systems, one shared DB",
         body: "Edge control and digital apps stay decoupled through a strict Data Access Layer.",
       },
@@ -196,22 +192,18 @@ const EN: LandingContent = {
     title: "What the platform delivers",
     cards: [
       {
-        icon: "🧠",
         title: "AI Signal Optimization",
         body: "Computer-vision perception drives a max-pressure optimizer that retimes every junction in real time.",
       },
       {
-        icon: "🚑",
         title: "Emergency Green Corridor",
         body: "Cryptographically signed, GPS-verified ambulance priority — a clear path when seconds matter.",
       },
       {
-        icon: "🛡️",
         title: "Safety-First Control",
         body: "A deterministic Safety Supervisor owns every signal change: no conflicting greens, enforced clearances.",
       },
       {
-        icon: "📊",
         title: "Live Transparency",
         body: "Operators see every decision and its reasoning, cycle by cycle, with a full audit trail.",
       },
@@ -402,22 +394,18 @@ const HI: LandingContent = {
     ],
     cards: [
       {
-        icon: "🔐",
         title: "एक बार सत्यापन, प्रत्येक जंक्शन पर भरोसा",
         body: "प्रस्थान के समय वाहन को हस्ताक्षरित, समय-सीमित, मार्ग-विशिष्ट, निरस्त-योग्य टोकन (Ed25519) मिलता है।",
       },
       {
-        icon: "🛰️",
         title: "जीपीएस-मिलान मार्ग द्वार",
         body: "प्रत्येक जंक्शन टोकन हस्ताक्षर और यह जाँचता है कि लाइव जीपीएस-पथ उसके घोषित मार्ग से मेल खाता है।",
       },
       {
-        icon: "🎥",
         title: "कैमरा पुष्टिकरण",
         body: "ANPR केवल यह पुष्टि करता है कि वाहन गुज़र चुका है — यह स्वयं द्वार नहीं खोलता।",
       },
       {
-        icon: "🧩",
         title: "दो प्रणालियाँ, एक साझा डेटाबेस",
         body: "एज नियंत्रण और डिजिटल ऐप्स एक सख्त डेटा एक्सेस लेयर के माध्यम से अलग बने रहते हैं।",
       },
@@ -428,22 +416,18 @@ const HI: LandingContent = {
     title: "मंच क्या प्रदान करता है",
     cards: [
       {
-        icon: "🧠",
         title: "एआई सिग्नल अनुकूलन",
         body: "कंप्यूटर-विज़न संवेदन एक मैक्स-प्रेशर अनुकूलक चलाता है जो हर जंक्शन को वास्तविक-समय में पुनः समयबद्ध करता है।",
       },
       {
-        icon: "🚑",
         title: "आपातकालीन ग्रीन कॉरिडोर",
         body: "क्रिप्टोग्राफ़िक रूप से हस्ताक्षरित, जीपीएस-सत्यापित एम्बुलेंस प्राथमिकता — जब हर सेकंड मायने रखता है तब साफ़ रास्ता।",
       },
       {
-        icon: "🛡️",
         title: "सुरक्षा-प्रथम नियंत्रण",
         body: "एक नियतात्मक सुरक्षा पर्यवेक्षक हर सिग्नल परिवर्तन का स्वामी है: कोई परस्पर-विरोधी हरा नहीं, सख्त क्लीयरेंस।",
       },
       {
-        icon: "📊",
         title: "लाइव पारदर्शिता",
         body: "ऑपरेटर हर निर्णय और उसका कारण, चक्र-दर-चक्र, पूर्ण ऑडिट-ट्रेल के साथ देखते हैं।",
       },

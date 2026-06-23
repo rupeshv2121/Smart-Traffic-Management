@@ -208,7 +208,6 @@ export function LandingPage() {
                 variant="scale"
                 delay={i * 80}
               >
-                <span className="approach-icon">{a.icon}</span>
                 <h3>{a.title}</h3>
                 <p>{a.body}</p>
               </Reveal>
@@ -279,7 +278,6 @@ export function LandingPage() {
                 <span className="feature-index" aria-hidden>
                   {String(i + 1).padStart(2, "0")}
                 </span>
-                <span className="ficon">{f.icon}</span>
                 <h3>{f.title}</h3>
                 <p>{f.body}</p>
                 <span className="feature-accent" aria-hidden />
