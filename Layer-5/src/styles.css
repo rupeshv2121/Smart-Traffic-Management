@@ -765,6 +765,7 @@ a:hover {
   border-radius: 16px;
   background: var(--accent-soft);
   border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+  color: var(--accent);
   font-size: 30px;
   margin-bottom: 18px;
   box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 22%, transparent);
@@ -1466,6 +1467,7 @@ a:hover {
   border-radius: 14px;
   background: linear-gradient(135deg, #eaf1fb, #f1f9ef);
   border: 1px solid var(--border);
+  color: var(--chakra-blue);
   font-size: 26px;
   margin-bottom: 14px;
   transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
@@ -1784,10 +1786,10 @@ a:hover {
 .sidebar {
   background: var(--surface);
   border-right: 1px solid var(--border);
-  padding: 18px 14px;
+  padding: 12px 10px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 2px;
   position: sticky;
   top: 0;
   height: 100vh;
@@ -1808,10 +1810,10 @@ a:hover {
 .sidebar-brand {
   display: flex;
   align-items: center;
-  gap: 11px;
-  padding: 8px 10px 16px;
+  gap: 10px;
+  padding: 6px 10px 12px;
   border-bottom: 1px solid var(--border);
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
 .sidebar-brand .b-title {
@@ -1830,9 +1832,9 @@ a:hover {
 .navlink {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  border-radius: 10px;
+  gap: 10px;
+  padding: 12px 12px;
+  border-radius: 8px;
   color: var(--ink-2);
   font-size: 16px;
   font-weight: 600;
@@ -1858,8 +1860,8 @@ a:hover {
 }
 
 .sidebar-foot {
-  padding: 0px 0px 4px 12px;
-  font-size: 12px;
+  padding: 0px 0px 2px 12px;
+  font-size: 11px;
   color: var(--muted);
 }
 
@@ -3784,14 +3786,14 @@ a:hover {
 .sidebar-user {
   margin-top: auto;
   border-top: 1px solid var(--border);
-  padding: 14px 8px 6px;
+  padding: 10px 8px 4px;
 }
 
 .su-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 10px;
+  gap: 8px;
+  margin-bottom: 6px;
 }
 
 .su-ic {
@@ -3837,10 +3839,10 @@ a:hover {
   width: 100%;
   background: var(--surface);
   border: 1px solid var(--border-strong);
-  border-radius: 9px;
-  padding: 8px 10px;
+  border-radius: 8px;
+  padding: 6px 10px;
   font-family: "Noto Sans", sans-serif;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--ink-2);
   cursor: pointer;
@@ -4005,6 +4007,43 @@ a:hover {
   max-width: 600px;
 }
 
+.sim-newtab-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px 7px 12px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.72);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #f1f5f9;
+  font-family: "Noto Sans", sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.25s ease, background 0.2s ease, transform 0.2s ease;
+  pointer-events: none;
+}
+
+.sim-viewport:hover .sim-newtab-btn {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.sim-newtab-btn:hover {
+  background: rgba(15, 23, 42, 0.9);
+  transform: translateY(-1px);
+  text-decoration: none;
+  color: #fff;
+}
+
 .sim-panel {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -4054,9 +4093,20 @@ a:hover {
   box-shadow: 0 0 8px currentColor;
 }
 
-.sim-signal-red { color: #ef4444; background: #ef4444; }
-.sim-signal-yellow { color: #f59e0b; background: #f59e0b; }
-.sim-signal-green { color: #10b981; background: #10b981; }
+.sim-signal-red {
+  color: #ef4444;
+  background: #ef4444;
+}
+
+.sim-signal-yellow {
+  color: #f59e0b;
+  background: #f59e0b;
+}
+
+.sim-signal-green {
+  color: #10b981;
+  background: #10b981;
+}
 
 .sim-signal-text {
   font-family: "Fira Code", monospace;
@@ -4065,7 +4115,8 @@ a:hover {
   color: var(--text-muted);
 }
 
-.sim-emv-info, .sim-junction-info {
+.sim-emv-info,
+.sim-junction-info {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -4154,7 +4205,8 @@ a:hover {
 .delhi-map {
   height: 100%;
   width: 100%;
-  z-index: 1; /* Keep leaflet under modal dialogs */
+  z-index: 1;
+  /* Keep leaflet under modal dialogs */
 }
 
 .custom-popup .leaflet-popup-content-wrapper {

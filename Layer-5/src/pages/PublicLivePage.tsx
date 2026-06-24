@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { CityMap } from "../components/command/CityMap";
+import { PublicMap } from "../components/PublicMap";
 import { GovFooter } from "../components/gov/GovFooter";
 import { GovHeader } from "../components/gov/GovHeader";
 import { UtilityBar } from "../components/gov/UtilityBar";
@@ -99,7 +99,7 @@ export function PublicLivePage() {
             <section className="card">
               <h2 className="card-title">{t.map}</h2>
               {city ? (
-                <CityMap junctions={junctions} selectedId={null} onSelect={() => { }} />
+                <PublicMap junctions={junctions} route={route} />
               ) : (
                 <p className="feed-empty">Connecting to live feed…</p>
               )}

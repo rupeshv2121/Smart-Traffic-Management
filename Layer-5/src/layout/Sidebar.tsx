@@ -21,7 +21,7 @@ export function Sidebar() {
   return (
     <nav className="sidebar">
       <Link to="/" className="sidebar-brand" style={{ textDecoration: "none" }}>
-        <AshokaChakra size={34} />
+        <AshokaChakra size={28} />
         <div>
           <div className="b-title">STM Delhi</div>
           <div className="b-sub">Control Center</div>
@@ -35,7 +35,7 @@ export function Sidebar() {
           className={({ isActive }) => `navlink ${isActive ? "active" : ""}`}
         >
           <span className="nicon">
-            <ModuleIcon moduleKey={n.key} size={19} />
+            <ModuleIcon moduleKey={n.key} size={17} />
           </span>
           {lang === "hi" ? n.labelHi : n.label}
         </NavLink>

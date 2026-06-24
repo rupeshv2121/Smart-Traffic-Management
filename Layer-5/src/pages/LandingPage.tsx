@@ -1,5 +1,15 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import {
+  ShieldCheck,
+  MapPin,
+  Camera,
+  Database,
+  Brain,
+  Siren,
+  Eye,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 import indiaGate from "../assets/IndiaGate.jpg";
 import rashtrapatiBhavan from "../assets/Rashtrapati_Bhavan.jpg";
@@ -31,6 +41,12 @@ const MINISTRIES = [
   { name: "Ministry of Housing & Urban Affairs", hindi: "आवासन और शहरी कार्य मंत्रालय", tag: "MoHUA" },
   { name: "Transport Department, GNCTD", hindi: "परिवहन विभाग, दिल्ली सरकार", tag: "Delhi" },
 ];
+
+// Lucide icons for the four "trust model" approach cards
+const APPROACH_ICONS: LucideIcon[] = [ShieldCheck, MapPin, Camera, Database];
+
+// Lucide icons for the four "capabilities" feature cards
+const FEATURE_ICONS: LucideIcon[] = [Brain, Siren, ShieldCheck, Eye];
 
 export function LandingPage() {
   const { lang } = useLang();
@@ -200,18 +216,24 @@ export function LandingPage() {
           </div>
 
           <div className="approach-grid">
-            {c.approach.cards.map((a, i) => (
-              <Reveal
-                as="article"
-                className="approach-card"
-                key={a.title}
-                variant="scale"
-                delay={i * 80}
-              >
-                <h3>{a.title}</h3>
-                <p>{a.body}</p>
-              </Reveal>
-            ))}
+            {c.approach.cards.map((a, i) => {
+              const ApproachIcon = APPROACH_ICONS[i];
+              return (
+                <Reveal
+                  as="article"
+                  className="approach-card"
+                  key={a.title}
+                  variant="scale"
+                  delay={i * 80}
+                >
+                  <span className="approach-icon" aria-hidden>
+                    <ApproachIcon size={26} strokeWidth={1.8} />
+                  </span>
+                  <h3>{a.title}</h3>
+                  <p>{a.body}</p>
+                </Reveal>
+              );
+            })}
           </div>
 
           {step && activeStep != null && (
@@ -267,22 +289,28 @@ export function LandingPage() {
             <h2 className="section-title">{c.features.title}</h2>
           </Reveal>
           <div className="feature-grid">
-            {c.features.cards.map((f, i) => (
-              <Reveal
-                as="article"
-                className="feature"
-                key={f.title}
-                variant="up"
-                delay={i * 90}
-              >
-                <span className="feature-index" aria-hidden>
-                  {String(i + 1).padStart(2, "0")}
-                </span>
-                <h3>{f.title}</h3>
-                <p>{f.body}</p>
-                <span className="feature-accent" aria-hidden />
-              </Reveal>
-            ))}
+            {c.features.cards.map((f, i) => {
+              const FeatIcon = FEATURE_ICONS[i];
+              return (
+                <Reveal
+                  as="article"
+                  className="feature"
+                  key={f.title}
+                  variant="up"
+                  delay={i * 90}
+                >
+                  <span className="feature-index" aria-hidden>
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <span className="ficon" aria-hidden>
+                    <FeatIcon size={28} strokeWidth={1.8} />
+                  </span>
+                  <h3>{f.title}</h3>
+                  <p>{f.body}</p>
+                  <span className="feature-accent" aria-hidden />
+                </Reveal>
+              );
+            })}
           </div>
         </section>
       </main>

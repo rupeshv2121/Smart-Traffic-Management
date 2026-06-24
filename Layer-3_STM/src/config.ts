@@ -84,7 +84,7 @@ export const emvTrust = {
   gpsMaxSpeedMps: Number(process.env.EMV_GPS_MAX_SPEED_MPS ?? 40),
   // 60s tolerates a fix taken up to two cycles before it is read; a real EMV
   // streams GPS continuously, so this only bounds how stale a fix may be.
-  gpsMaxAgeMs: Number(process.env.EMV_GPS_MAX_AGE_MS ?? 60_000),
+  gpsMaxAgeMs: Number(process.env.EMV_GPS_MAX_AGE_MS ?? 300_000),
   etaToleranceRatio: Number(process.env.EMV_ETA_TOL_RATIO ?? 0.6),
   etaToleranceAbsSeconds: Number(process.env.EMV_ETA_TOL_ABS ?? 15),
   clockSkewMs: Number(process.env.EMV_CLOCK_SKEW_MS ?? 5_000),

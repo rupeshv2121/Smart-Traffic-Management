@@ -1,3 +1,4 @@
+import { ExternalLink } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { EmergencyBanner } from "../components/EmergencyBanner";
@@ -205,7 +206,7 @@ export function SimulationPage() {
     try {
       const res = await dispatchEmv({
         targetPhaseId: phase,
-        etaSeconds: 35,
+        etaSeconds: 90,
         priorityClass: "CRITICAL",
       });
       if (!res.ok && res.error) {
@@ -259,6 +260,18 @@ export function SimulationPage() {
           allow="accelerometer; autoplay; camera; gyroscope; webgl"
           onLoad={handleIframeLoad}
         />
+
+        {/* Open simulation full-screen in a new tab */}
+        <a
+          href={SIM_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="sim-newtab-btn"
+          title="Open simulation in full screen"
+        >
+          <ExternalLink size={16} strokeWidth={2} />
+          Open in new tab
+        </a>
 
         {/* Connection status overlay */}
         {connection !== "live" && (
