@@ -21,7 +21,7 @@ import { calculatePersonFlow } from "../types/types";
 import type { OrchestratorResult } from "../stm-orchestrator";
 import type { LadderState } from "../resilience-handler";
 import type { CorridorSnapshot } from "../emv/corridor-manager";
-import type { ActuationCommand, Layer2Payload, EmergencyToken } from "../types/types";
+import type { ActuationCommand, BusLaneResult, Layer2Payload, EmergencyToken } from "../types/types";
 
 /** Where this cycle's perception came from. */
 export type PerceptionSource = "LIVE_CV" | "MOCK_FALLBACK";
@@ -121,6 +121,14 @@ export interface CycleSnapshot {
 
   controller: ControllerSnapshot;
 
+  /** Bus lane violation detection results (from /predict/buslane), if available. */
+  busLane?: {
+    unauthorizedCount: number;
+    confidenceScore: number;
+    violations: { type: string; bbox: number[] }[];
+    annotatedImage: string;
+  };
+
   decision: {
     executionPath: string; // NORMAL_MODE | EMERGENCY_MODE | FALLBACK_MODE
     targetPhaseId: string;
@@ -164,8 +172,9 @@ export function buildSnapshot(args: {
   emergency: EmergencyToken | null;
   result: OrchestratorResult;
   corridor: CorridorSnapshot;
+  busLane?: BusLaneResult | null;
 }): CycleSnapshot {
-  const { cycle, layer2, source, emergency, result, corridor } = args;
+  const { cycle, layer2, source, emergency, result, corridor, busLane } = args;
   const greenPhase = result.finalCommand.targetPhaseId;
 
   const approaches: ApproachSnapshot[] = layer2.approaches.map((a) => ({
@@ -242,6 +251,14 @@ export function buildSnapshot(args: {
         }
       : null,
     corridor,
+    ...(busLane ? {
+      busLane: {
+        unauthorizedCount: busLane.unauthorizedCount,
+        confidenceScore: busLane.confidenceScore,
+        violations: busLane.violations,
+        annotatedImage: busLane.annotatedImage,
+      },
+    } : {}),
     resilience: {
       ladderState: result.ladderState,
       brokerConnected: result.link.brokerConnected,

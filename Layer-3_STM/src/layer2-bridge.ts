@@ -7,12 +7,46 @@
 // Python service every cycle.
 // ============================================================
 
-import type { Layer2Payload, PlateEvent } from "./types/types";
+import { readFileSync, existsSync } from "node:fs";
+import { resolve } from "node:path";
+
+import type { BusLaneResult, Layer2Payload, PlateEvent } from "./types/types";
+
+// ── Bus lane camera registry ────────────────────────────────────
+// Points to the bundled test images + pre-picked lane polygon coordinates.
+// In production, replace with real camera frames and surveyed lane geometry.
+
+const ML_ROOT = resolve(__dirname, "..", "..", "GatiShakti-ML");
+const BUS_LANE_DIR = resolve(ML_ROOT, "testing", "BusLane");
+const LANE_COORDS_PATH = resolve(ML_ROOT, "lanecoordinates.json");
+
+interface BusLaneCamera {
+  imagePath: string;
+  coordinates: number[][];
+}
+
+function loadBusLaneCameras(): BusLaneCamera[] {
+  if (!existsSync(LANE_COORDS_PATH)) return [];
+  try {
+    const raw = JSON.parse(readFileSync(LANE_COORDS_PATH, "utf-8")) as Record<string, number[][]>;
+    return Object.entries(raw)
+      .map(([filename, coords]) => ({
+        imagePath: resolve(BUS_LANE_DIR, filename),
+        coordinates: coords,
+      }))
+      .filter((c) => existsSync(c.imagePath));
+  } catch {
+    return [];
+  }
+}
+
+const busLaneCameras = loadBusLaneCameras();
 
 export class Layer2Bridge {
   private readonly baseUrl: string;
   private readonly junctionId: string;
   private readonly timeoutMs: number;
+  private busLaneCycleIndex = 0;
 
   constructor(baseUrl: string, junctionId: string, timeoutMs = 8000) {
     // Strip any trailing slash so URL composition is predictable.
@@ -67,6 +101,50 @@ export class Layer2Bridge {
     if (plates.length) raw.plateEvents = plates;
     return raw;
   }
+
+  /**
+   * Fetch bus lane violation detection from the perception service.
+   * Cycles through the bundled test images (with pre-picked lane polygon
+   * coordinates) so different frames are analysed across cycles.
+   * Returns null if no cameras are configured or the service is unreachable.
+   */
+  public async fetchBusLane(): Promise<BusLaneResult | null> {
+    if (busLaneCameras.length === 0) return null;
+
+    const camera = busLaneCameras[this.busLaneCycleIndex % busLaneCameras.length]!;
+    this.busLaneCycleIndex++;
+
+    const imageBytes = readFileSync(camera.imagePath);
+    const blob = new Blob([imageBytes], { type: "image/png" });
+
+    const form = new FormData();
+    form.append("lane_image", blob, "frame.png");
+    form.append("signal_id", "1");
+    form.append("bus_lane_coordinates", JSON.stringify(camera.coordinates));
+
+    const res = await fetch(`${this.baseUrl}/predict/buslane`, {
+      method: "POST",
+      body: form,
+      signal: AbortSignal.timeout(15_000), // YOLO inference can be slower
+    });
+
+    if (!res.ok) {
+      throw new Error(`Bus lane API returned ${res.status} ${res.statusText}`);
+    }
+
+    const raw = (await res.json()) as Record<string, unknown>;
+    return {
+      unauthorizedCount: Number(raw.unauthorized_count ?? raw.unauthorizedCount ?? 0),
+      confidenceScore: Number(raw.confidence_score ?? raw.confidenceScore ?? 0),
+      violations: (Array.isArray(raw.violations) ? raw.violations : []).map(
+        (v: Record<string, unknown>) => ({
+          type: String(v.type ?? "Unknown"),
+          bbox: Array.isArray(v.bbox) ? v.bbox.map(Number) : [],
+        }),
+      ),
+      annotatedImage: String(raw.annotated_image ?? raw.annotatedImage ?? ""),
+    };
+  }
 }
 
 function normalizePlateEvents(input: unknown): PlateEvent[] {
@@ -91,3 +169,4 @@ function normalizePlateEvents(input: unknown): PlateEvent[] {
     })
     .filter((x): x is PlateEvent => x !== null);
 }
+

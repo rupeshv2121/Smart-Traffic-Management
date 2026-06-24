@@ -63,6 +63,21 @@ export interface PlateEvent {
   evidenceUrl?: string;
 }
 
+// ── Bus Lane Violation Detection (from /predict/buslane) ──────
+// Mirrors the response shape of GatiShakti-ML's bus lane endpoint.
+
+export interface BusLaneViolation {
+  type: string;       // Vehicle class name: "Car", "Bike", "Bicycle"
+  bbox: number[];     // [x1, y1, x2, y2] bounding box in image coordinates
+}
+
+export interface BusLaneResult {
+  unauthorizedCount: number;
+  confidenceScore: number;
+  violations: BusLaneViolation[];
+  annotatedImage: string;  // base64-encoded annotated image with lane outline + violation boxes
+}
+
 export interface Layer2Payload {
   junctionId: string;
   timestamp: string;

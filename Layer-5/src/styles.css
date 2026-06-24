@@ -1936,11 +1936,16 @@ a:hover {
   grid-template-columns: repeat(4, 1fr);
 }
 
+.cols-5 {
+  grid-template-columns: repeat(5, 1fr);
+}
+
 @media (max-width: 980px) {
 
   .cols-2,
   .cols-3,
-  .cols-4 {
+  .cols-4,
+  .cols-5 {
     grid-template-columns: 1fr;
   }
 }

@@ -145,6 +145,13 @@ export interface CycleSnapshot {
   /** 4-state resilience ladder + the link health behind it. */
   resilience: ResilienceSnapshot;
   controller: ControllerSnapshot;
+  /** Bus lane violation detection results (from /predict/buslane), if available. */
+  busLane?: {
+    unauthorizedCount: number;
+    confidenceScore: number;
+    violations: { type: string; bbox: number[] }[];
+    annotatedImage: string;
+  };
   decision: {
     executionPath: string;
     targetPhaseId: string;

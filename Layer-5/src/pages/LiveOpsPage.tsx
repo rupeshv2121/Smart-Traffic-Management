@@ -17,6 +17,7 @@ export function LiveOpsPage() {
 
   const { perception, decision, emergency } = latest;
   const totalVeh = perception.approaches.reduce((s, a) => s + a.totalVehicles, 0);
+  const busLane = latest.busLane;
 
   return (
     <>
@@ -26,7 +27,7 @@ export function LiveOpsPage() {
         </div>
       )}
 
-      <div className="cols cols-4 mb-20">
+      <div className="cols cols-5 mb-20">
         <StatCard
           label="Active green phase"
           value={decision.targetPhaseId}
@@ -50,6 +51,12 @@ export function LiveOpsPage() {
           value={decision.safetyValidationPassed ? "Safe" : "Blocked"}
           foot={decision.executionMode}
           accent={decision.safetyValidationPassed ? "green" : "danger"}
+        />
+        <StatCard
+          label="Bus lane violations"
+          value={busLane ? busLane.unauthorizedCount : "—"}
+          foot={busLane ? `${Math.round(busLane.confidenceScore * 100)}% confidence` : "Awaiting detection"}
+          accent={busLane && busLane.unauthorizedCount > 0 ? "danger" : "green"}
         />
       </div>
 

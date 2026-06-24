@@ -10,6 +10,7 @@ import {
   type ChallanStatus,
 } from "../lib/api";
 import { CHALLANS as MOCK_CHALLANS, VIOLATION_LABEL } from "../lib/mockData";
+import { useStream } from "../context/StreamContext";
 
 const STATUS_PILL: Record<ChallanStatus, string> = {
   PENDING: "warn",
@@ -23,6 +24,7 @@ export function ChallanPage() {
   const [offline, setOffline] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const { latest } = useStream();
 
   const load = useCallback(async () => {
     try {
@@ -116,11 +118,24 @@ export function ChallanPage() {
         {selected ? (
           <section className="card">
             <h2 className="card-title">Evidence · {selected.id}</h2>
-            <div className="anpr-frame">
-              <div className="anpr-scanline" aria-hidden />
-              <div className="anpr-plate mono">{selected.plate}</div>
-              <div className="anpr-tag">ANPR CAPTURE · {selected.junctionCode}</div>
-            </div>
+
+            {/* Bus lane violations show the CV-annotated evidence image */}
+            {selected.violation === "WRONG_LANE" && latest?.busLane?.annotatedImage ? (
+              <div className="anpr-frame" style={{ padding: 0, background: "#0a0a12" }}>
+                <img
+                  src={`data:image/jpeg;base64,${latest.busLane.annotatedImage}`}
+                  alt="Bus lane violation — annotated frame"
+                  style={{ width: "100%", display: "block", borderRadius: "var(--radius-sm)" }}
+                />
+                <div className="anpr-tag">BUS LANE CV EVIDENCE · {selected.junctionCode}</div>
+              </div>
+            ) : (
+              <div className="anpr-frame">
+                <div className="anpr-scanline" aria-hidden />
+                <div className="anpr-plate mono">{selected.plate}</div>
+                <div className="anpr-tag">ANPR CAPTURE · {selected.junctionCode}</div>
+              </div>
+            )}
 
             <div className="kv">
               <span className="k">Violation</span>

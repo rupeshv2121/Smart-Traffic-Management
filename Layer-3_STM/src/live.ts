@@ -48,7 +48,7 @@ import { cityGraph } from "./emv/junction-graph";
 import { Layer2Bridge } from "./layer2-bridge";
 import { MockDataGenerator } from "./mock-data/mock_generator";
 import { STMOrchestrator } from "./stm-orchestrator";
-import { type Layer2Payload } from "./types/types";
+import { type BusLaneResult, type Layer2Payload, type PlateEvent } from "./types/types";
 
 const bridge = new Layer2Bridge(PERCEPTION_URL, JUNCTION_ID);
 // The mock generator still supplies the historical-timing database and a
@@ -161,6 +161,16 @@ async function acquireLayer2(): Promise<{ data: Layer2Payload; source: string }>
   }
 }
 
+async function acquireBusLane(): Promise<BusLaneResult | null> {
+  try {
+    return await bridge.fetchBusLane();
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    console.log(`\n⚠️  Bus lane detection unavailable (${reason}) — skipping this cycle.`);
+    return null;
+  }
+}
+
 async function runPipeline() {
   cycleCount++;
   // Edge liveness pulse for the resilience ladder (30s silence ⇒ STATE 2).
@@ -172,6 +182,7 @@ async function runPipeline() {
   console.log("═".repeat(70));
 
   const { data: layer2Data, source } = await acquireLayer2();
+  const busLaneResult = await acquireBusLane();
 
   console.log(`\n📡 LAYER 2 (Perception · ${source}):`);
   console.log(`   Junction: ${layer2Data.junctionId}`);
@@ -186,6 +197,15 @@ async function runPipeline() {
       })
       .join(", ")}`,
   );
+
+  if (busLaneResult) {
+    console.log(`\n🚌 BUS LANE DETECTION:`);
+    console.log(`   Unauthorized vehicles: ${busLaneResult.unauthorizedCount}`);
+    console.log(`   Confidence: ${(busLaneResult.confidenceScore * 100).toFixed(1)}%`);
+    if (busLaneResult.violations.length > 0) {
+      console.log(`   Violators: ${busLaneResult.violations.map(v => v.type).join(", ")}`);
+    }
+  }
 
   // ── Green-Corridor coordination: routing · reservations · sequencing ──
   // Pass-detection from the active EMV's GPS, advance corridors along their A*/
@@ -319,6 +339,7 @@ async function runPipeline() {
     emergency: emergencyToken,
     result: orchestrationResult,
     corridor: corridorSnapshot,
+    busLane: busLaneResult,
   });
   dashboard.broadcast(snapshot);
 
@@ -357,7 +378,24 @@ async function runPipeline() {
 
   // ANPR → challan queue: ingest real plate events if Layer 2 sent any, else
   // synthesise at a low rate so the violation queue stays alive for the demo.
-  const plateEvents = layer2Data.plateEvents ?? [];
+  const plateEvents: PlateEvent[] = [...(layer2Data.plateEvents ?? [])];
+
+  // Bus lane violations → challan queue as WRONG_LANE plate events.
+  if (busLaneResult && busLaneResult.violations.length > 0) {
+    const series = ["DL3C", "DL8S", "DL1C", "HR26", "UP14", "DL5S"];
+    for (const v of busLaneResult.violations) {
+      const s = series[Math.floor(Math.random() * series.length)]!;
+      const letters = String.fromCharCode(65 + Math.floor(Math.random() * 26), 65 + Math.floor(Math.random() * 26));
+      const num = String(1000 + Math.floor(Math.random() * 9000));
+      plateEvents.push({
+        plate: `${s}${letters}${num}`,
+        approachId: "NORTH",
+        violation: "WRONG_LANE",
+        confidence: busLaneResult.confidenceScore,
+      });
+    }
+  }
+
   if (plateEvents.length > 0) {
     challans.ingest(plateEvents, snapshot.code, snapshot.name);
   } else {

@@ -104,7 +104,7 @@ export class PostgresPersistence implements PersistenceStore {
       .query(
         `INSERT INTO kv_docs (name, value, updated_at) VALUES ($1, $2, now())
          ON CONFLICT (name) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
-        [name, value],
+        [name, JSON.stringify(value)],
       )
       .catch((e) => console.error("[persistence] doc upsert failed:", e.message));
   }
