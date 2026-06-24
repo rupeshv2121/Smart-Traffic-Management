@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { MapContainer, TileLayer, CircleMarker, Popup, useMap, Polyline } from "react-leaflet";
+import { CircleMarker, MapContainer, Polyline, Popup, TileLayer, useMap } from "react-leaflet";
 import type { JunctionSummary } from "../types/snapshot";
 
 interface PublicMapProps {
@@ -48,9 +48,9 @@ export function PublicMap({ junctions, route }: PublicMapProps) {
           url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
           attribution='&copy; <a href="https://carto.com/attributions">CARTO</a>'
         />
-        
+
         {route && (
-          <Polyline 
+          <Polyline
             positions={[
               [route.f.lat, route.f.lng],
               [route.tt.lat, route.tt.lng]
@@ -60,11 +60,11 @@ export function PublicMap({ junctions, route }: PublicMapProps) {
         )}
 
         {displayJunctions.map((j) => {
-          const jColor = j.congestionLevel === "GRIDLOCK" ? "#ef4444" 
-            : j.congestionLevel === "HEAVY" ? "#f59e0b" 
-            : j.congestionLevel === "MODERATE" ? "#eab308"
-            : j.congestionLevel === "SMOOTH" ? "#3b82f6"
-            : "#10b981"; // CLEAR
+          const jColor = j.congestionLevel === "GRIDLOCK" ? "#ef4444"
+            : j.congestionLevel === "HEAVY" ? "#f59e0b"
+              : j.congestionLevel === "MODERATE" ? "#eab308"
+                : j.congestionLevel === "SMOOTH" ? "#3b82f6"
+                  : "#10b981"; // CLEAR
 
           return (
             <CircleMarker
