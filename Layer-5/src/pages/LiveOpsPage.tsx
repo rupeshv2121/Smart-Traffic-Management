@@ -7,10 +7,11 @@ import { EmptyState } from "../components/EmptyState";
 import { JunctionDiagram } from "../components/JunctionDiagram";
 import { ReasonChain } from "../components/ReasonChain";
 import { StatCard } from "../components/StatCard";
+import { DelhiMap } from "../components/DelhiMap";
 import { useStream } from "../context/StreamContext";
 
 export function LiveOpsPage() {
-  const { latest, history, connection } = useStream();
+  const { latest, history, connection, city } = useStream();
 
   if (!latest) return <EmptyState connection={connection} />;
 
@@ -53,6 +54,15 @@ export function LiveOpsPage() {
       </div>
 
       <div className="cols cols-2 mb-20">
+        <section className="card" style={{ padding: 0, overflow: "hidden", minHeight: "400px" }}>
+          <DelhiMap
+            lat={latest.lat}
+            lng={latest.lng}
+            junctionId={latest.junctionId}
+            approaches={perception.approaches}
+            otherJunctions={city?.junctions}
+          />
+        </section>
         <section className="card">
           <h2 className="card-title">Junction State</h2>
           <JunctionDiagram
@@ -60,22 +70,25 @@ export function LiveOpsPage() {
             approaches={perception.approaches}
           />
         </section>
+      </div>
+
+      <div className="cols cols-2 mb-20">
         <section className="card">
           <h2 className="card-title">Approach Demand</h2>
           <ApproachList approaches={perception.approaches} />
         </section>
+        <DecisionPanel decision={decision} />
       </div>
 
       <div className="cols cols-2 mb-20">
-        <DecisionPanel decision={decision} />
         <ConfidenceGauge
           score={perception.cvConfidenceScore}
           source={perception.source}
         />
+        <ReasonChain reasons={decision.reasonChain} />
       </div>
 
-      <div className="cols cols-2 mb-20">
-        <ReasonChain reasons={decision.reasonChain} />
+      <div className="mb-20">
         {history.length > 1 ? (
           <CycleHistory history={history} />
         ) : (
