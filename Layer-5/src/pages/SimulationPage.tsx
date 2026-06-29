@@ -8,8 +8,8 @@ import { useStream } from "../context/StreamContext";
 import { dispatchEmv, type PhaseId } from "../lib/api";
 import type {
   ApproachId,
-  CycleSnapshot,
   CitySnapshot,
+  CycleSnapshot,
   JunctionSummary,
 } from "../types/snapshot";
 
@@ -341,7 +341,7 @@ export function SimulationPage() {
             </div>
           </div>
         ) : (
-          <p className="sim-no-emv">🟢 No active corridor</p>
+          <p className="sim-no-emv">No active corridor</p>
         )}
 
         {/* Dispatch controls */}
@@ -351,14 +351,14 @@ export function SimulationPage() {
         <div className="sim-dispatch-btns">
           <button
             className="btn btn-primary"
-            disabled={dispatching || hasEmergency}
+            disabled={dispatching}
             onClick={() => dispatchFromUI("NS")}
           >
             Dispatch N↔S
           </button>
           <button
             className="btn btn-primary"
-            disabled={dispatching || hasEmergency}
+            disabled={dispatching}
             onClick={() => dispatchFromUI("EW")}
           >
             Dispatch E↔W

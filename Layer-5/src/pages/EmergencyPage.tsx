@@ -152,9 +152,8 @@ export function EmergencyPage() {
         </>
       )}
 
-      {state !== "CORRIDOR_ACTIVE" && (
-        <div className="cols cols-2 mb-20">
-          <section className="card">
+      <div className="cols cols-2 mb-20">
+        <section className="card">
             <h2 className="card-title">Dispatch Green Corridor</h2>
             <form onSubmit={dispatch} className="override-form">
               <label className="field-label">Target phase</label>
@@ -178,7 +177,7 @@ export function EmergencyPage() {
           </section>
 
           <section className="card">
-            {state === "CONFLICT" && conflict ? (
+            {conflict ? (
               <>
                 <h2 className="card-title">Priority Conflict</h2>
                 <div className="emv-conflict">
@@ -193,7 +192,7 @@ export function EmergencyPage() {
                   <button className="btn btn-ghost" onClick={() => setConflict(null)}>Dismiss</button>
                 </div>
               </>
-            ) : state === "ARRIVED" && lastRun ? (
+            ) : lastRun ? (
               <>
                 <h2 className="card-title">Corridor Complete · Run Summary</h2>
                 <div className="kv"><span className="k">Vehicle</span><span className="v">{lastRun.emvId}</span></div>
@@ -204,12 +203,22 @@ export function EmergencyPage() {
                 <p className="muted" style={{ marginTop: 12, fontSize: 13 }}>Estimated vs. uncoordinated signals; collateral delay to cross traffic is logged to the audit trail.</p>
                 <button className="btn btn-ghost" style={{ marginTop: 12 }} onClick={() => setLastRun(null)}>Clear</button>
               </>
+            ) : emergency ? (
+              <>
+                <h2 className="card-title">Secondary Dispatch</h2>
+                <div className="empty" style={{ padding: "24px 0" }}>
+                  <div className="big">Corridor Active</div>
+                  <p className="muted" style={{ marginLeft: '10%', marginRight: '10%' }}>
+                    You can dispatch a second vehicle. If it has a higher priority, it will preempt the current corridor. Otherwise, it will trigger conflict resolution.
+                  </p>
+                </div>
+              </>
             ) : (
               <>
                 <h2 className="card-title">Status</h2>
                 <div className="empty" style={{ padding: "24px 0" }}>
-                  <div className="big">🟢 No active emergency corridor</div>
-                  <p className="muted">
+                  <div className="big">No active emergency corridor</div>
+                  <p className="muted" style={{ marginLeft: '10%', marginRight: '10%' }}>
                     Dispatch a signed, GPS-verified corridor with the form. The junction
                     verifies the Ed25519 token before any green is granted.
                   </p>
@@ -218,7 +227,6 @@ export function EmergencyPage() {
             )}
           </section>
         </div>
-      )}
     </>
   );
 }

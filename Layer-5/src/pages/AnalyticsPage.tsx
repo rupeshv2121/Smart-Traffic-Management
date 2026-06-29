@@ -162,9 +162,9 @@ export function AnalyticsPage() {
       </div>
 
       <div className="cols cols-2 mb-20">
-        <section className="card">
+        <section className="card" style={{ display: "flex", flexDirection: "column" }}>
           <h2 className="card-title">Approach Congestion · recent cycles</h2>
-          <div className="heatmap">
+          <div className="heatmap" style={{ flex: 1, justifyContent: "center", gap: "12px" }}>
             {APPROACH_ORDER.map((ap) => (
               <div className="heat-row" key={ap}>
                 <span className="heat-label">{ap}</span>

@@ -122,11 +122,10 @@ export function CommandPage() {
           )}
         </section>
 
-        <IncidentFeed incidents={city.incidents} />
-      </div>
-
-      <div className="cols mb-20">
-        <AiPanel latest={latest} city={city} history={history} />
+        <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+          <IncidentFeed incidents={city.incidents} />
+          <AiPanel latest={latest} city={city} history={history} />
+        </div>
       </div>
 
       <div className="cols">
