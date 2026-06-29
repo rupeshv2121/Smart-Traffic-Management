@@ -133,6 +133,15 @@ export function SimulationPage() {
         active: snap.corridor.active,
         reservedJunctions: snap.corridor.reservedJunctions,
       });
+
+      // 5. Conflict visual state — tells the 3D sim which EMV is ACTIVE (wins the
+      //    corridor) and which are HELD (stopped at their approach red light).
+      //    Sent every snapshot so the sim stays in sync with corridor transitions.
+      postToSim({
+        type: "CONFLICT_STATE_UPDATE",
+        active: snap.corridor.active,   // CorridorView | null
+        held: snap.corridor.conflicts ?? [],  // CorridorView[]
+      });
     }
   }
 

@@ -480,6 +480,11 @@ function HospitalLandmark() {
   );
 }
 
+/** Maps a Layer-3 targetPhaseId string to the sim's NS/EW direction axis. */
+function phaseToDirection(phase: string): Direction {
+  return phase === 'NORTH' || phase === 'SOUTH' ? 'NS' : 'EW';
+}
+
 function TrafficSystem() {
   // Create a controller for each of the 9 intersections
   const controllersRef = useRef<Map<string, TrafficController>>(new Map());
@@ -498,6 +503,17 @@ function TrafficSystem() {
   const [ambulanceActive, setAmbulanceActive] = useState(false);
   const [ambulanceDir, setAmbulanceDir] = useState<Direction>('NS');
   const [flowRate, setFlowRate] = useState(42);
+
+  // ── Conflict/held ambulance state ───────────────────────────────────
+  // When a higher-priority EMV wins the corridor, lower-priority EMVs are
+  // HELD at their approach red light until the winner clears the junction.
+  const [heldAmbulanceActive, setHeldAmbulanceActive] = useState(false);
+  const [heldAmbulanceDir, setHeldAmbulanceDir] = useState<Direction>('EW');
+  const [heldEmvId, setHeldEmvId] = useState('');
+  const [heldPriorityClass, setHeldPriorityClass] = useState('');
+  // Metadata for the ACTIVE ambulance label (set via CONFLICT_STATE_UPDATE).
+  const [activeEmvMeta, setActiveEmvMeta] = useState<{ priorityClass: string; emvId: string } | null>(null);
+
   const autoDispatchRef = useRef<number | null>(null);
   const activeEmergencyIntersectionRef = useRef<string | null>(null);
   const [corridorSelections, setCorridorSelections] = useState<Record<string, ApproachLane>>({});
@@ -727,6 +743,19 @@ function TrafficSystem() {
     setAmbulanceActive(true);
   }, []);
 
+  /** Spawn the held (lower-priority) ambulance that stops at the red light. */
+  const spawnHeldAmbulance = useCallback((dir: Direction, priorityClass: string, emvId: string) => {
+    setHeldAmbulanceDir(dir);
+    setHeldPriorityClass(priorityClass);
+    setHeldEmvId(emvId);
+    setHeldAmbulanceActive(true);
+  }, []);
+
+  /** Clear the held ambulance (called when the conflict is resolved). */
+  const clearHeldAmbulance = useCallback(() => {
+    setHeldAmbulanceActive(false);
+  }, []);
+
   // Auto-dispatch an ambulance periodically when none is active.
   useEffect(() => {
     if (ambulanceActive) {
@@ -950,7 +979,7 @@ function TrafficSystem() {
       {getCarOffsets('E').map((o, i) => getVehicleComponent('E', o, i + 12))}
       {getCarOffsets('W').map((o, i) => getVehicleComponent('W', -o, i + 18))}
 
-      {/* Realistic Ambulance */}
+      {/* Active ambulance — drives through the intersection on green. */}
       <RealisticAmbulanceMoving
         active={ambulanceActive}
         direction={ambulanceDir}
@@ -968,6 +997,23 @@ function TrafficSystem() {
             : getIntersectionCenterForVehicle(lane, position ?? 0);
           return getLaneSignalAtIntersection(center.x, center.z, lane);
         }}
+        label={activeEmvMeta ? { status: 'ACTIVE', priority: activeEmvMeta.priorityClass, emvId: activeEmvMeta.emvId } : undefined}
+      />
+
+      {/* Held ambulance — lower-priority EMV stopped at its approach red light.
+          getSignalForLane always returns 'red' so the ambulance decelerates to
+          the stop line and waits there until clearHeldAmbulance() is called. */}
+      <RealisticAmbulanceMoving
+        vehicleId="held-ambulance"
+        active={heldAmbulanceActive}
+        direction={heldAmbulanceDir}
+        hospitalTarget={HOSPITAL_TARGET}
+        hospitalApproachPoint={HOSPITAL_APPROACH_POINT}
+        hospitalTerminalPoint={HOSPITAL_TERMINAL_POINT}
+        onApproachIntersection={() => {}}
+        onPassedIntersection={() => setHeldAmbulanceActive(false)}
+        getSignalForLane={() => 'red'}
+        label={heldAmbulanceActive ? { status: 'HELD', priority: heldPriorityClass, emvId: heldEmvId } : undefined}
       />
 
       {/* Intersection Markers */}
@@ -1000,7 +1046,11 @@ function TrafficSystem() {
 
       <HUDBridge
         spawnAmbulance={spawnAmbulance}
+        spawnHeldAmbulance={spawnHeldAmbulance}
+        clearHeldAmbulance={clearHeldAmbulance}
+        setActiveEmvMeta={setActiveEmvMeta}
         ambulanceActive={ambulanceActive}
+        heldAmbulanceActive={heldAmbulanceActive}
         ambulanceDir={ambulanceDir}
         mode={mode}
         nsSignal={nsSignal}
@@ -1013,15 +1063,23 @@ function TrafficSystem() {
 
 function HUDBridge({
   spawnAmbulance,
+  spawnHeldAmbulance,
+  clearHeldAmbulance,
+  setActiveEmvMeta,
   ambulanceActive,
+  heldAmbulanceActive,
   ambulanceDir,
   mode,
   nsSignal,
   ewSignal,
-  flowRate
+  flowRate,
 }: {
   spawnAmbulance: (dir: Direction) => void;
+  spawnHeldAmbulance: (dir: Direction, priorityClass: string, emvId: string) => void;
+  clearHeldAmbulance: () => void;
+  setActiveEmvMeta: (meta: { priorityClass: string; emvId: string } | null) => void;
   ambulanceActive: boolean;
+  heldAmbulanceActive: boolean;
   ambulanceDir: Direction;
   mode: string;
   nsSignal: string;
@@ -1031,14 +1089,18 @@ function HUDBridge({
   const frameCountRef = useRef(0);
 
   useFrame(() => {
-    // Update global state for HUD
+    // Update global state for HUD — read by the outer postMessage handler and SystemHUD.
     (window as any).__simState = {
       spawnAmbulance,
+      spawnHeldAmbulance,
+      clearHeldAmbulance,
+      setActiveEmvMeta,
       ambulanceActive,
+      heldAmbulanceActive,
       mode,
       nsSignal,
       ewSignal,
-      flowRate
+      flowRate,
     };
 
     // Send lane data to parent window every 20 frames (~3 times per second)
@@ -1126,6 +1188,33 @@ export function SimulationScene() {
         (window as any).__simCorridor = { active: !!msg.active, route: msg.active?.route || [] };
       } else if (msg.type === 'CITY_STATE_UPDATE') {
         (window as any).__simCityJunctions = msg.junctions || [];
+
+      } else if (msg.type === 'CONFLICT_STATE_UPDATE') {
+        // msg.active: CorridorView | null  — the EMV that won the corridor
+        // msg.held:   CorridorView[]       — EMVs waiting at their approach red
+        const s = (window as any).__simState;
+        if (!s) return;
+
+        const active = msg.active as { priorityClass: string; emvId: string } | null;
+        const held = (msg.held ?? []) as Array<{ targetPhaseId: string; priorityClass: string; emvId: string }>;
+
+        // Update the ACTIVE ambulance label metadata.
+        s.setActiveEmvMeta?.(active ? { priorityClass: active.priorityClass, emvId: active.emvId } : null);
+
+        if (held.length > 0) {
+          // Spawn the first held ambulance if not already visible.
+          if (!s.heldAmbulanceActive) {
+            const first = held[0];
+            s.spawnHeldAmbulance?.(
+              phaseToDirection(first.targetPhaseId),
+              first.priorityClass,
+              first.emvId,
+            );
+          }
+        } else {
+          // No held EMVs → conflict resolved, clear the held visual.
+          s.clearHeldAmbulance?.();
+        }
       }
     };
     window.addEventListener('message', onMessage);

@@ -1,10 +1,17 @@
 import { RealisticAmbulance } from '@/components/vehicles/RealisticAmbulance';
 import type { ApproachLane, Direction, SignalState } from '@/simulation/TrafficController';
 import { vehicleManager } from '@/simulation/VehicleManager';
+import { Billboard, Text } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { LANE_POSITIONS } from './Road';
+
+interface AmbulanceLabelProps {
+  status: 'ACTIVE' | 'HELD';
+  priority: string;
+  emvId: string;
+}
 
 interface RealisticAmbulanceMovingProps {
   active: boolean;
@@ -17,6 +24,10 @@ interface RealisticAmbulanceMovingProps {
   onPositionUpdate?: (lane: ApproachLane, worldX: number, worldZ: number) => void;
   onRouteDecision?: (centerX: number, centerZ: number, selectedLane: ApproachLane) => void;
   getSignalForLane: (lane: ApproachLane, position?: number, worldX?: number, worldZ?: number) => SignalState;
+  /** Unique ID registered with VehicleManager. Defaults to 'demo-ambulance'. */
+  vehicleId?: string;
+  /** When set, renders a floating priority/status label above the ambulance. */
+  label?: AmbulanceLabelProps;
 }
 
 const BASE_AMBULANCE_SPEED = 8.5;
@@ -25,7 +36,7 @@ const EXIT_DISTANCE = 210;
 const STOP_LINE_DISTANCE = 17;
 const STOP_APPROACH_DISTANCE = 10;
 const SIGNAL_LINES = [-100, 0, 100];
-const AMB_ID = 'demo-ambulance';
+const DEFAULT_AMB_ID = 'demo-ambulance';
 const TURN_DURATION = 0.9;
 const MAX_ACTIVE_SECONDS = 140;
 const HOSPITAL_ARRIVAL_RADIUS = 2.2;
@@ -172,8 +183,13 @@ export function RealisticAmbulanceMoving({
   onPassedIntersection,
   onPositionUpdate,
   onRouteDecision,
-  getSignalForLane
+  getSignalForLane,
+  vehicleId = DEFAULT_AMB_ID,
+  label,
 }: RealisticAmbulanceMovingProps) {
+  // vehicleId shadows the removed module-level AMB_ID constant so every
+  // vehicleManager call below uses the correct ID per ambulance instance.
+  const AMB_ID = vehicleId;
   const groupRef = useRef<THREE.Group>(null);
   const laneRef = useRef<Lane>(direction === 'NS' ? 'N' : 'E');
   const configRef = useRef(getLaneConfig(direction === 'NS' ? 'N' : 'E'));
@@ -513,9 +529,44 @@ nextLane = chooseLaneTowardHospital(currentLane, intersectionCenterX, intersecti
 
   if (!active) return null;
 
+  const labelColor = label?.status === 'ACTIVE' ? '#00ff88' : '#ff8800';
+
   return (
     <group ref={groupRef}>
       <RealisticAmbulance />
+
+      {/* Floating priority/status overlay — only shown during a conflict */}
+      {label && (
+        <>
+          {/* Line 1: STATUS • PRIORITY */}
+          <Billboard position={[0, 9, 0]}>
+            <Text
+              fontSize={2.2}
+              color={labelColor}
+              anchorX="center"
+              anchorY="middle"
+              outlineWidth={0.3}
+              outlineColor="#000000"
+            >
+              {`${label.status} • ${label.priority}`}
+            </Text>
+          </Billboard>
+
+          {/* Line 2: EMV ID (truncated) */}
+          <Billboard position={[0, 6.5, 0]}>
+            <Text
+              fontSize={1.6}
+              color="#dddddd"
+              anchorX="center"
+              anchorY="middle"
+              outlineWidth={0.2}
+              outlineColor="#000000"
+            >
+              {label.emvId.slice(0, 16)}
+            </Text>
+          </Billboard>
+        </>
+      )}
     </group>
   );
 }
