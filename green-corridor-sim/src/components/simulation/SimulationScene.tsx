@@ -529,6 +529,15 @@ function TrafficSystem() {
   const getLaneSignalAtIntersection = useCallback(
     (centerX: number, centerZ: number, lane: ApproachLane): SignalState => {
       const id = getIntersectionId(centerX, centerZ);
+      const controller = controllersRef.current.get(id);
+      // Local green-corridor emergency always wins — even at the main intersection
+      // where an external SIGNAL_STATE_UPDATE override is applied. Otherwise the
+      // ambulance reads the externally-forced color (which knows nothing about the
+      // locally-dispatched EMV) and stalls at the stop line instead of getting its
+      // preempted green.
+      if (controller && controller.getState().mode === 'emergency') {
+        return controller.getLaneSignal(lane);
+      }
       if (id === getIntersectionId(MAIN_INTERSECTION_CENTER.x, MAIN_INTERSECTION_CENTER.z)) {
          const override = (window as any).__simSignalOverride;
          if (override) {
@@ -537,7 +546,6 @@ function TrafficSystem() {
             if (color === 'red' || color === 'green' || color === 'yellow') return color as SignalState;
          }
       }
-      const controller = controllersRef.current.get(id);
       return controller ? controller.getLaneSignal(lane) : 'red';
     },
     []
