@@ -25,17 +25,23 @@ export function SystemHUD({ mode, nsSignal, ewSignal, ambulanceActive, flowRate,
       <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-3 pointer-events-auto">
         <button
           onClick={() => onSpawnAmbulance('NS')}
-          disabled={ambulanceActive}
-          className="text-system px-4 py-2 border border-border bg-card/80 backdrop-blur-sm text-foreground hover:border-destructive hover:text-destructive transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          className={`text-system px-4 py-2 border bg-card/80 backdrop-blur-sm transition-colors hover:border-destructive hover:text-destructive ${
+            ambulanceActive
+              ? 'border-amber-500/60 text-amber-400'
+              : 'border-border text-foreground'
+          }`}
         >
-          DISPATCH_NS
+          {ambulanceActive ? 'PREEMPT_NS' : 'DISPATCH_NS'}
         </button>
         <button
           onClick={() => onSpawnAmbulance('EW')}
-          disabled={ambulanceActive}
-          className="text-system px-4 py-2 border border-border bg-card/80 backdrop-blur-sm text-foreground hover:border-destructive hover:text-destructive transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          className={`text-system px-4 py-2 border bg-card/80 backdrop-blur-sm transition-colors hover:border-destructive hover:text-destructive ${
+            ambulanceActive
+              ? 'border-amber-500/60 text-amber-400'
+              : 'border-border text-foreground'
+          }`}
         >
-          DISPATCH_EW
+          {ambulanceActive ? 'PREEMPT_EW' : 'DISPATCH_EW'}
         </button>
         {/* <button
           onClick={() => navigate('/traffic')}

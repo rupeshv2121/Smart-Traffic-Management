@@ -18,6 +18,16 @@ import { LANE_POSITIONS, Road } from './Road';
 import { SystemHUD } from './SystemHUD';
 import { TrafficLight } from './TrafficLight';
 
+type PriorityClass = 'CRITICAL' | 'HIGH' | 'NORMAL';
+
+interface EMVDispatch {
+  direction: Direction;
+  priorityClass: PriorityClass;
+  etaSeconds: number;
+}
+
+const PRIORITY_CLASS_RANK: Record<PriorityClass, number> = { CRITICAL: 3, HIGH: 2, NORMAL: 1 };
+
 const MAIN_INTERSECTION_CENTER = { x: 0, z: 0 };
 const APPROACH_MIN = 17; // near stop line
 const APPROACH_MAX = 80; // upstream queue window
@@ -497,6 +507,8 @@ function TrafficSystem() {
 
   const [ambulanceActive, setAmbulanceActive] = useState(false);
   const [ambulanceDir, setAmbulanceDir] = useState<Direction>('NS');
+  const [emvSpawnKey, setEmvSpawnKey] = useState(0);
+  const activeEMVRef = useRef<Pick<EMVDispatch, 'priorityClass' | 'etaSeconds'> | null>(null);
   const [flowRate, setFlowRate] = useState(42);
   const autoDispatchRef = useRef<number | null>(null);
   const activeEmergencyIntersectionRef = useRef<string | null>(null);
@@ -712,20 +724,34 @@ function TrafficSystem() {
       controller.clearEmergency();
     }
     activeEmergencyIntersectionRef.current = null;
+    activeEMVRef.current = null;
     setApproachPath(null);
     setCorridorPreview(null);
     setCorridorSelections({});
     setAmbulanceActive(false);
   }, []);
 
-  const spawnAmbulance = useCallback((dir: Direction) => {
+  const dispatchEMV = useCallback((incoming: EMVDispatch) => {
+    const current = activeEMVRef.current;
+    if (current !== null) {
+      const inRank = PRIORITY_CLASS_RANK[incoming.priorityClass];
+      const curRank = PRIORITY_CLASS_RANK[current.priorityClass];
+      const wins = inRank > curRank || (inRank === curRank && incoming.etaSeconds < current.etaSeconds);
+      if (!wins) return;
+    }
+    activeEMVRef.current = { priorityClass: incoming.priorityClass, etaSeconds: incoming.etaSeconds };
     activeEmergencyIntersectionRef.current = null;
     setApproachPath(null);
     setCorridorPreview(null);
     setCorridorSelections({});
-    setAmbulanceDir(dir);
+    setAmbulanceDir(incoming.direction);
     setAmbulanceActive(true);
+    setEmvSpawnKey((prev) => prev + 1);
   }, []);
+
+  const spawnAmbulance = useCallback((dir: Direction) => {
+    dispatchEMV({ direction: dir, priorityClass: 'HIGH', etaSeconds: 30 });
+  }, [dispatchEMV]);
 
   // Auto-dispatch an ambulance periodically when none is active.
   useEffect(() => {
@@ -740,7 +766,7 @@ function TrafficSystem() {
     const delay = 15000 + Math.random() * 15000; // 15–30s between automatic calls
     autoDispatchRef.current = window.setTimeout(() => {
       const dir: Direction = Math.random() > 0.5 ? 'NS' : 'EW';
-      spawnAmbulance(dir);
+      dispatchEMV({ direction: dir, priorityClass: 'NORMAL', etaSeconds: 60 });
     }, delay);
 
     return () => {
@@ -749,7 +775,7 @@ function TrafficSystem() {
         autoDispatchRef.current = null;
       }
     };
-  }, [ambulanceActive, spawnAmbulance]);
+  }, [ambulanceActive, dispatchEMV]);
 
   const handleIntersectionClick = useCallback((intersectionId: string) => {
     // Send message to parent window
@@ -954,6 +980,7 @@ function TrafficSystem() {
       <RealisticAmbulanceMoving
         active={ambulanceActive}
         direction={ambulanceDir}
+        spawnKey={emvSpawnKey}
         hospitalTarget={HOSPITAL_TARGET}
         hospitalApproachPoint={HOSPITAL_APPROACH_POINT}
         hospitalTerminalPoint={HOSPITAL_TERMINAL_POINT}
@@ -1000,6 +1027,7 @@ function TrafficSystem() {
 
       <HUDBridge
         spawnAmbulance={spawnAmbulance}
+        dispatchEMV={dispatchEMV}
         ambulanceActive={ambulanceActive}
         ambulanceDir={ambulanceDir}
         mode={mode}
@@ -1013,6 +1041,7 @@ function TrafficSystem() {
 
 function HUDBridge({
   spawnAmbulance,
+  dispatchEMV,
   ambulanceActive,
   ambulanceDir,
   mode,
@@ -1021,6 +1050,7 @@ function HUDBridge({
   flowRate
 }: {
   spawnAmbulance: (dir: Direction) => void;
+  dispatchEMV: (d: EMVDispatch) => void;
   ambulanceActive: boolean;
   ambulanceDir: Direction;
   mode: string;
@@ -1034,6 +1064,7 @@ function HUDBridge({
     // Update global state for HUD
     (window as any).__simState = {
       spawnAmbulance,
+      dispatchEMV,
       ambulanceActive,
       mode,
       nsSignal,
@@ -1110,13 +1141,21 @@ export function SimulationScene() {
 
       if (msg.type === 'DISPATCH_AMBULANCE_ACK' || msg.type === 'DISPATCH_AMBULANCE') {
         const s = (window as any).__simState;
-        if (s?.spawnAmbulance && !s.ambulanceActive) {
-          s.spawnAmbulance(msg.direction || 'NS');
+        if (s?.dispatchEMV) {
+          s.dispatchEMV({
+            direction: msg.direction || 'NS',
+            priorityClass: msg.priorityClass || 'NORMAL',
+            etaSeconds: msg.etaSeconds ?? 60,
+          });
         }
       } else if (msg.type === 'EMERGENCY_UPDATE') {
         const s = (window as any).__simState;
-        if (s?.spawnAmbulance && msg.active && !s.ambulanceActive) {
-          s.spawnAmbulance(msg.direction || 'NS');
+        if (s?.dispatchEMV && msg.active) {
+          s.dispatchEMV({
+            direction: msg.direction || 'NS',
+            priorityClass: msg.priorityClass || 'NORMAL',
+            etaSeconds: msg.etaSeconds ?? 60,
+          });
         }
       } else if (msg.type === 'SIGNAL_STATE_UPDATE') {
         (window as any).__simSignalOverride = msg.signals;

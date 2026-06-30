@@ -264,11 +264,20 @@ export class CorridorManager {
       if (next) c.router?.advanceStart(next);
     }
     c.currentIndex = clamped;
-    if (clamped >= c.route.length - 1) {
+    if (clamped >= c.route.length - 1 && !c.arrived) {
       const dest = c.route[c.route.length - 1];
       if (dest) c.cleared.add(dest);
       c.reserved.clear();
       c.arrived = true;
+      // The vehicle has CLEARED its route. Release the grant and re-resolve so a
+      // held EMV is promoted the instant the winner arrives — not left waiting
+      // until the arrived token expires. Without this an arrived corridor keeps
+      // granted=true, which (a) blocks promotion and (b) lets resolveGrants()
+      // grant a SECOND corridor on top of it, breaking the single-grant
+      // invariant. Covers every arrival path (tick + GPS pass-detection).
+      c.granted = false;
+      c.heldReason = null;
+      this.resolveGrants();
     }
   }
 
@@ -330,7 +339,9 @@ export class CorridorManager {
   public snapshot(): CorridorSnapshot {
     const views = [...this.corridors.values()].map((c) => this.view(c));
     const active = views.find((v) => v.granted) ?? null;
-    const conflicts = views.filter((v) => !v.granted);
+    // Held corridors waiting their turn — an ARRIVED corridor is done, not held,
+    // so it must not be counted as a conflict (it lingers in `all` until expiry).
+    const conflicts = views.filter((v) => !v.granted && v.status !== "ARRIVED");
     const reservedJunctions = [...this.corridors.values()].reduce(
       (s, c) => s + (c.granted ? c.reserved.size : 0),
       0,

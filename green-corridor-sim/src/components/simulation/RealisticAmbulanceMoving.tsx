@@ -9,6 +9,7 @@ import { LANE_POSITIONS } from './Road';
 interface RealisticAmbulanceMovingProps {
   active: boolean;
   direction: Direction;
+  spawnKey?: number;
   hospitalTarget: [number, number];
   hospitalApproachPoint: [number, number];
   hospitalTerminalPoint: [number, number];
@@ -165,6 +166,7 @@ function chooseLaneTowardHospital(
 export function RealisticAmbulanceMoving({
   active,
   direction,
+  spawnKey,
   hospitalTarget,
   hospitalApproachPoint,
   hospitalTerminalPoint,
@@ -236,7 +238,7 @@ export function RealisticAmbulanceMoving({
       vehicleManager.unregister(AMB_ID);
     }
     return () => vehicleManager.unregister(AMB_ID);
-  }, [active, direction]);
+  }, [active, direction, spawnKey]);
 
   useFrame((_, dt) => {
     if (!groupRef.current || !active) return;
