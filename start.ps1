@@ -5,11 +5,12 @@
 #   Layer 2 (GatiShakti-ML, FastAPI + YOLO)            :8000   (optional)
 #     -> Layer 3 (Layer-3_STM, Node/TS)  EMV :8100, dashboard :8200
 #       -> Layer 5 (Layer-5, React/Vite dashboard UI)  :5273
+#       -> Green Corridor Sim (React/Three.js)         :8081
 #
 # Frees stack ports, brings up infra if the Layer-3 .env asks for Postgres/Redis,
 # starts perception (non-fatal if it never comes up - Layer 3 falls back to mock),
-# opens the Layer 5 dashboard in its own window, then runs the Layer 3 pipeline
-# in the foreground. Ctrl+C stops everything this script started.
+# opens Layer 5 and the Green Corridor Sim in their own windows, then runs the
+# Layer 3 pipeline in the foreground. Ctrl+C stops everything this script started.
 #
 # Usage:
 #   powershell -ExecutionPolicy Bypass -File .\start.ps1
@@ -28,12 +29,14 @@ $root = $PSScriptRoot
 $ml   = Join-Path $root "GatiShakti-ML"
 $stm  = Join-Path $root "Layer-3_STM"
 $l5   = Join-Path $root "Layer-5"
+$sim  = Join-Path $root "green-corridor-sim"
 
 $ports = @{
-    "Layer 2 perception" = 8000
-    "Layer 3 EMV intake" = 8100
-    "Layer 3 dashboard"  = 8200
-    "Layer 5 UI (Vite)"  = 5273
+    "Layer 2 perception"     = 8000
+    "Layer 3 EMV intake"     = 8100
+    "Layer 3 dashboard"      = 8200
+    "Layer 5 UI (Vite)"      = 5273
+    "Green Corridor Sim"     = 8081
 }
 
 function Stop-PortOwner {
@@ -67,7 +70,7 @@ function Test-InfraRequested {
 }
 
 Write-Host "=============================================================="
-Write-Host " Integrated Traffic Stack - Layers 2 + 3 + 5"
+Write-Host " Integrated Traffic Stack - Layers 2 + 3 + 5 + Green Sim"
 Write-Host "=============================================================="
 
 # --- [0] Free stack ports ----------------------------------------------------
@@ -129,7 +132,7 @@ if ($SkipPerception) {
 }
 
 # --- [3] Dependencies (first run only) ---------------------------------------
-foreach ($proj in @($stm, $l5)) {
+foreach ($proj in @($stm, $l5, $sim)) {
     if (-not (Test-Path (Join-Path $proj "node_modules"))) {
         Write-Host "[3] Installing dependencies in $proj (first run only)..."
         Push-Location $proj; npm install; Pop-Location
@@ -141,6 +144,13 @@ Write-Host "[4] Opening Layer 5 dashboard UI (new window) -> http://localhost:52
 $dashboard = Start-Process -FilePath "powershell" -ArgumentList @(
     "-NoExit", "-ExecutionPolicy", "Bypass",
     "-Command", "Set-Location '$l5'; npm run dev"
+) -PassThru
+
+# --- [4b] Green Corridor Sim (own window) ------------------------------------
+Write-Host "[4b] Opening Green Corridor Sim (new window) -> http://localhost:8081 ..."
+$simProc = Start-Process -FilePath "powershell" -ArgumentList @(
+    "-NoExit", "-ExecutionPolicy", "Bypass",
+    "-Command", "Set-Location '$sim'; npm run dev"
 ) -PassThru
 
 # --- [5] Layer 3 pipeline (foreground; Ctrl+C stops everything) --------------
@@ -155,7 +165,9 @@ try {
     Write-Host "Stopping services..."
     if ($server -and -not $server.HasExited) { Stop-Process -Id $server.Id -Force -ErrorAction SilentlyContinue }
     if ($dashboard -and -not $dashboard.HasExited) { Stop-Process -Id $dashboard.Id -Force -ErrorAction SilentlyContinue }
+    if ($simProc -and -not $simProc.HasExited) { Stop-Process -Id $simProc.Id -Force -ErrorAction SilentlyContinue }
     Stop-PortOwner -Port 5273
+    Stop-PortOwner -Port 8081
     if ($infraStarted -and $StopInfraOnExit) {
         Write-Host "Stopping infra (docker compose stop)..."
         Push-Location $stm; docker compose stop | Out-Host; Pop-Location
