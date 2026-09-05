@@ -2,6 +2,18 @@
 
 An integrated, multi-layer intelligent traffic-control stack combining computer-vision perception, orchestrating signal optimization logic, a live operations dashboard, and an interactive 3D simulation environment.
 
+> 📚 **Full technical documentation lives in [`docs/`](docs/README.md)** — per-layer architectures, pipelines, data
+> contracts, API reference, security & resilience design, and the operations runbook.
+>
+> | | |
+> |---|---|
+> | [System Architecture](docs/00-system-architecture.md) | [Data Contracts](docs/data-contracts.md) |
+> | [Layer 1 — Sensing & EMV Telemetry](docs/layer-1-sensing-and-emv-telemetry.md) | [API Reference](docs/api-reference.md) |
+> | [Layer 2 — Perception (CV)](docs/layer-2-perception-ml.md) | [Security & Trust](docs/cross-cutting-security-and-trust.md) |
+> | [Layer 3 — Decision & Optimisation](docs/layer-3-decision-orchestration.md) | [Resilience & Fail-Safe](docs/cross-cutting-resilience-and-failsafe.md) |
+> | [Layer 4 — Communication & Control](docs/layer-4-communication-and-control.md) | [Operations Runbook](docs/operations-runbook.md) |
+> | [Layer 5 — Command & Operations](docs/layer-5-command-and-operations.md) | [3D Simulator](docs/simulator-green-corridor-sim.md) |
+
 ---
 
 ## 🏗️ System Architecture & Data Flow

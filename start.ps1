@@ -1,5 +1,4 @@
-# =============================================================================
-# start.ps1 - One-command launcher for the integrated traffic stack.
+ integrated traffic stack.
 #
 #   (optional) Infra: TimescaleDB + Redis via docker compose
 #   Layer 2 (GatiShakti-ML, FastAPI + YOLO)            :8000   (optional)
